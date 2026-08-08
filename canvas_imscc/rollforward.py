@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""Helpers for rolling a course forward by MUTATING a real Canvas export.
+
+When the next offering of a course is mostly the previous offering, do not
+rebuild it with builder.py. Take the Canvas export of the previous term and
+change only what has to change.
+
+A genuine export already satisfies every structural requirement in
+docs/playbook.md, including the course_settings manifest declaration that
+everything else hinges on, and it carries the assignments, rubrics, groups,
+grading standard, files and presentations through untouched at zero effort
+and zero risk. Rebuilding those from scratch is work you do not need to do
+and risk you do not need to take.
+
+The pattern: stream the source .imscc entry by entry, classify each one as
+drop / replace / copy, then append new entries. A multi-gigabyte package is
+transformed without ever being unpacked. See docs/mutating-an-export.md for
+the full walkthrough and examples.
+
+Every function here exists because of a specific bug. The comments say which.
+"""
+import datetime
+import html as _html
+import re
+import urllib.parse
+import xml.etree.ElementTree as ET
+import zipfile
+
+
+# ---------------------------------------------------------------------------
+# Paths: the same file is spelled three different ways in one package
+# ---------------------------------------------------------------------------
+def path_spellings(path):
+    """Every spelling of one path that might appear anywhere in a package.
+
+    imsmanifest.xml XML-escapes hrefs ("Presentations &amp; PDFs"). Page HTML
+    percent-encodes them behind $IMS-CC-FILEBASE$ and then XML-escapes that.
+    And Canvas does not percent-encode the way urllib does by default: it
+    leaves commas and several other characters literal, so "Dec 15, 2021"
+    comes out "Dec%2015,%202021", not "Dec%2015%2C%202021".
+
+    Sorted longest first, so a plain spelling can never eat part of an
+    escaped one.
+    """
+    out = set()
+    for v in (path,
+              urllib.parse.quote(path, safe="/"),
+              urllib.parse.quote(path, safe="/,()!$&+")):
+        out.add(v)
+        out.add(_html.escape(v, quote=False))
+    return sorted(out, key=len, reverse=True)
+
+
+def xml_href(path):
+    """A path as it must be written inside an XML attribute."""
+    return _html.escape(path, quote=False)
+
+
+def html_href(path):
+    """A path as it must be written behind $IMS-CC-FILEBASE$ in page HTML."""
+    return _html.escape(urllib.parse.quote(path, safe="/,()!$&+"), quote=False)
+
+
+def apply_remap(text, remap, mode):
+    """Rewrite every spelling of each old path to ONE correctly encoded new one.
+
+    mode is "xml" for manifest/settings files, "html" for page bodies.
+
+    Matching many spellings and EMITTING many spellings, pairwise, is the bug
+    this function exists to prevent. Pairing plain-old with plain-new and
+    escaped-old with escaped-new is wrong the moment the two paths need
+    different escaping: moving "unfiled/x.pdf" to "Syllabi & Schedules/x.pdf"
+    wrote a bare & into an href, which made imsmanifest.xml invalid XML, which
+    made every module item in the imported course render as inert, unclickable
+    text. So: match anything, but always emit the encoding the destination
+    format requires.
+    """
+    emit = xml_href if mode == "xml" else html_href
+    for old, new in remap.items():
+        target = emit(new)
+        for spelling in path_spellings(old):
+            text = text.replace(spelling, target)
+    return text
+
+
+def assert_paths_exist(zip_names, *maps):
+    """Fail loudly if a path in a rename/drop map is not in the package.
+
+    Filenames contain characters that look ordinary and are not. A macOS
+    screenshot stored as "8.55.41 PM.png" used a NARROW NO-BREAK SPACE
+    (U+202F); a remap keyed on a normal space matched nothing and failed in
+    silence. Discovering that downstream costs far more than failing here.
+    """
+    missing = [p for m in maps for p in m if p not in zip_names]
+    if missing:
+        raise SystemExit("paths in a remap are not in the package: %r" % missing)
+
+
+# ---------------------------------------------------------------------------
+# Due dates
+# ---------------------------------------------------------------------------
+def due_fields(datestr, clock=None, utc_offset=None):
+    """(due_at, all_day_date, all_day) for a local due date, Canvas's way.
+
+    due_at is UTC; all_day_date is the LOCAL date. An all-day assignment due
+    at 11:59pm local is written at hour (offset - 1) on the FOLLOWING UTC day:
+    2026-02-19 at UTC-5 becomes 2026-02-20T04:59:59, and 2026-03-12 at UTC-4
+    becomes 2026-03-13T03:59:59. Getting this off by one is easy and
+    invisible.
+
+    datestr is "YYYY-MM-DD". clock is "HH:MM" local for a timed deadline, or
+    None for the 11:59pm all-day default. utc_offset is hours WEST of UTC
+    (5 for US Eastern standard time, 4 for daylight) and must be supplied by
+    the caller, because only the caller knows the course's timezone and where
+    its daylight-saving boundaries fall.
+
+    Cheap way to confirm you have it right: leave one assignment's date
+    untouched and compare your output against what Canvas itself wrote.
+    """
+    if utc_offset is None:
+        raise ValueError("utc_offset is required: pass hours west of UTC, e.g. 5 or 4")
+    y, m, d = (int(v) for v in datestr.split("-"))
+    if clock is None:
+        nxt = datetime.date(y, m, d) + datetime.timedelta(days=1)
+        return "%sT%02d:59:59" % (nxt.isoformat(), utc_offset - 1), datestr, "true"
+    hh, mm = (int(v) for v in clock.split(":"))
+    return "%sT%02d:%02d:00" % (datestr, hh + utc_offset, mm), datestr, "false"
+
+
+def set_due(assignment_xml, due_at, all_day_date, all_day):
+    """Write the three date fields into an assignment_settings.xml string.
+
+    Handles both the self-closing empty form Canvas writes for an assignment
+    with no date (<due_at/>) and a populated element.
+    """
+    x = re.sub(r"<due_at\s*/>|<due_at>.*?</due_at>",
+               "<due_at>%s</due_at>" % due_at, assignment_xml, count=1)
+    if re.search(r"<all_day_date\s*/>|<all_day_date>", x):
+        x = re.sub(r"<all_day_date\s*/>|<all_day_date>.*?</all_day_date>",
+                   "<all_day_date>%s</all_day_date>" % all_day_date, x, count=1)
+    else:
+        # Canvas writes all_day_date only when there is a date to write, so a
+        # freshly built assignment may not have the element at all. Insert it
+        # after due_at, where real exports put it.
+        x = re.sub(r"(</due_at>)",
+                   r"\1\n  <all_day_date>%s</all_day_date>" % all_day_date, x, count=1)
+    x = re.sub(r"<all_day\s*/>|<all_day>.*?</all_day>",
+               "<all_day>%s</all_day>" % all_day, x, count=1)
+    return x
+
+
+# ---------------------------------------------------------------------------
+# Finding things in a package
+# ---------------------------------------------------------------------------
+# A module item in course_settings/module_meta.xml.
+ITEM_RE = re.compile(r"[ \t]*<item identifier=\"[^\"]+\">.*?</item>\n", re.S)
+
+# A LEAF item in the manifest's <organizations> tree. Only leaves carry
+# identifierref, so this never matches a module wrapper and never has to nest.
+ORG_ITEM_RE = re.compile(
+    r"[ \t]*<item identifier=\"[^\"]+\" identifierref=\"[^\"]+\">.*?</item>\n", re.S)
+
+
+def org_module_re(title):
+    """A MODULE in the manifest organizations tree.
+
+    A module there is an <item> carrying a title and child <item>s and no
+    identifierref, so it is matched by title and its own closing indent.
+    ORG_ITEM_RE cannot be used: it only ever matches leaves, and a naive
+    non-greedy pattern would truncate a module at its first child's </item>.
+    """
+    return re.compile(
+        r'([ \t]*)<item identifier="[^"]+">\n\s*<title>%s</title>\n(.*?)\n\1</item>\n'
+        % re.escape(title), re.S)
+
+
+def assignment_titles(z):
+    """{zip path of assignment_settings.xml: title} for every assignment."""
+    out = {}
+    for nm in z.namelist():
+        if nm.endswith("/assignment_settings.xml"):
+            m = re.search(r"<title>(.*?)</title>", z.read(nm).decode("utf8", "replace"))
+            out[nm] = _html.unescape(m.group(1)) if m else "?"
+    return out
+
+
+def resource_id_for(man, href):
+    """The resource identifier declaring a given href.
+
+    Attribute order in imsmanifest.xml is NOT fixed: Canvas writes page
+    resources as <resource identifier=... type=... href=...> and file
+    resources as <resource type=... identifier=... href=...>. Any regex that
+    assumes one order silently under-reports. Match the block, then look
+    inside it.
+    """
+    for block in re.findall(r"<resource\b[^>]*>", man):
+        if 'href="%s"' % xml_href(href) in block or 'href="%s"' % href in block:
+            m = re.search(r'identifier="([^"]+)"', block)
+            if m:
+                return m.group(1)
+    return None
+
+
+def announcement_resources(z, man, titles_to_drop):
+    """(resource ids, file paths) for announcements you want removed.
+
+    Announcements come in PAIRS: each is an imsdt_xmlv1p1 topic resource plus
+    an associatedcontent meta resource it names in a <dependency>. Removing
+    only the topic leaves the manifest pointing at an orphan. Both resources
+    and both .xml files have to go.
+
+    Note a discussion topic (<type>topic</type>) is not an announcement
+    (<type>announcement</type>) and may well be a real module item you want
+    to keep.
+    """
+    refs, files, found = set(), set(), set()
+    for block in re.findall(r'<resource\b[^>]*type="imsdt_xmlv1p1"[^>]*>.*?</resource>',
+                            man, re.S):
+        topic_id = re.search(r'identifier="([^"]+)"', block).group(1)
+        topic_file = re.search(r'<file href="([^"]+)"', block).group(1)
+        title = _html.unescape(re.search(r"<title>(.*?)</title>",
+                                         z.read(topic_file).decode(), re.S).group(1))
+        if title not in titles_to_drop:
+            continue
+        found.add(title)
+        refs.add(topic_id)
+        files.add(topic_file)
+        for dep in re.findall(r'<dependency identifierref="([^"]+)"', block):
+            refs.add(dep)
+            files.add(dep + ".xml")
+    missing = set(titles_to_drop) - found
+    if missing:
+        raise SystemExit("announcements marked for removal not found: %s" % sorted(missing))
+    return refs, files
+
+
+def weblink_resources(z, man, titles_to_drop):
+    """(resource ids, file paths) for ExternalUrl links you want removed.
+
+    An ExternalUrl module item is only the visible half. Each link is also an
+    imswl_xmlv1p1 resource with its own .xml file. Dropping the module item
+    alone leaves the resource orphaned in the package, and no structural check
+    will notice.
+    """
+    refs, files, found = set(), set(), set()
+    for block in re.findall(r'<resource\b[^>]*type="imswl_xmlv1p1"[^>]*>.*?</resource>',
+                            man, re.S):
+        ref = re.search(r'identifier="([^"]+)"', block).group(1)
+        f = re.search(r'<file href="([^"]+)"', block).group(1)
+        title = _html.unescape(re.search(r"<title>(.*?)</title>",
+                                         z.read(f).decode(), re.S).group(1))
+        if title in titles_to_drop:
+            found.add(title)
+            refs.add(ref)
+            files.add(f)
+    missing = set(titles_to_drop) - found
+    if missing:
+        raise SystemExit("weblinks marked for removal not found: %s" % sorted(missing))
+    return refs, files
+
+
+def emptied_dirs(names, moved, dropped):
+    """Directory entries whose every child has moved away or been dropped.
+
+    A zip records folders as their own entries. Move every file out and the
+    folder is still listed, so Canvas still shows an empty folder in Files.
+    """
+    out = set()
+    for d in {n for n in names if n.endswith("/")}:
+        children = [n for n in names if n != d and n.startswith(d)]
+        if children and all(n in moved or n in dropped for n in children):
+            out.add(d)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Streaming the rewrite
+# ---------------------------------------------------------------------------
+def stream_rewrite(src, out, *, drop=(), replace=None, add=None,
+                   rename=None, transform=None):
+    """Copy src.imscc to out.imscc, changing only what you name.
+
+    drop       iterable of zip entry names to omit entirely
+    replace    {entry name: bytes} to write instead of the original
+    add        {entry name: bytes} to append as new entries
+    rename     {old entry name: new entry name} for moved files
+    transform  callable(name, data) -> bytes, applied to everything else that
+               is not dropped or replaced. Return data unchanged to pass it
+               through.
+
+    Nothing is unpacked, so package size costs time but not disk or memory.
+
+    If a renamed file lands on a path that already exists, the first one wins
+    and the second is dropped. That is the deduplication case, and it is
+    deliberate: two manifest resources declaring the same href is invalid.
+    """
+    drop = set(drop)
+    replace = replace or {}
+    add = add or {}
+    rename = rename or {}
+    written = set()
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for info in zin.infolist():
+            nm = info.filename
+            if nm in drop:
+                continue
+            dest = rename.get(nm, nm)
+            if dest in written:
+                continue
+            written.add(dest)
+            if nm in replace:
+                data = replace[nm]
+            else:
+                data = zin.read(nm)
+                if transform is not None:
+                    data = transform(nm, data)
+            zout.writestr(dest, data)
+        for nm, data in add.items():
+            if nm not in written:
+                zout.writestr(nm, data)
+
+
+def diff_packages(a, b):
+    """(added, removed, modified) entry names between two packages.
+
+    Verify a mutation by diffing the result against the source rather than by
+    trusting your own checks. This is the round-trip rule applied before
+    import instead of after, and it is what catches an edit that reached more
+    entries than you intended.
+    """
+    with zipfile.ZipFile(a) as za, zipfile.ZipFile(b) as zb:
+        ha = {i.filename: i.CRC for i in za.infolist()}
+        hb = {i.filename: i.CRC for i in zb.infolist()}
+    added = sorted(set(hb) - set(ha))
+    removed = sorted(set(ha) - set(hb))
+    modified = sorted(n for n in set(ha) & set(hb) if ha[n] != hb[n])
+    return added, removed, modified
+
+
+def assert_xml_parses(path):
+    """Parse every .xml in a finished package. Do this before anything else.
+
+    A path rewrite once wrote a bare & into an href, making imsmanifest.xml
+    invalid XML. Every regex check still passed: resources were declared,
+    hrefs resolved, references matched. But no parser could read the manifest,
+    so nothing could build a resource map, and every module item rendered as
+    inert unclickable text in both the cartridge viewer and Canvas.
+    """
+    bad = []
+    with zipfile.ZipFile(path) as z:
+        for nm in sorted(n for n in z.namelist() if n.endswith(".xml")):
+            try:
+                ET.fromstring(z.read(nm))
+            except ET.ParseError as exc:
+                bad.append((nm, str(exc)))
+    if bad:
+        raise SystemExit("XML is not well-formed:\n" +
+                         "\n".join("  %s -> %s" % b for b in bad))
