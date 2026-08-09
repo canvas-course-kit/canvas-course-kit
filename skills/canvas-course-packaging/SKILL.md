@@ -162,7 +162,7 @@ that stays in the repo forever.
 
 When you hit one, work around it, finish the instructor's job, and then **offer
 to open an issue** at
-<https://github.com/misplacedfloridaman/canvas-course-kit/issues/new/choose>
+<https://github.com/canvas-course-kit/canvas-course-kit/issues/new/choose>
 using the "Canvas behaved differently than documented" template. Draft it
 yourself; you already know what broke and what you changed. Report the symptom
 **in Canvas** rather than in the script, whether this was a build or a mutation,

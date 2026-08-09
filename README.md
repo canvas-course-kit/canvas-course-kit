@@ -8,7 +8,7 @@ Then let an AI agent do the work. **If you use Claude Code**, install this as a
 plugin and you get a `/build-canvas-course` command that walks you through it:
 
 ```
-/plugin marketplace add misplacedfloridaman/canvas-course-kit
+/plugin marketplace add canvas-course-kit/canvas-course-kit
 /plugin install canvas-course-kit
 ```
 

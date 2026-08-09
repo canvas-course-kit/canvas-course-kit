@@ -4,7 +4,7 @@
   "description": "Tooling for instructors building Canvas courses without API access.",
   "owner": {
     "name": "canvas-course-kit contributors",
-    "url": "https://github.com/misplacedfloridaman/canvas-course-kit"
+    "url": "https://github.com/canvas-course-kit/canvas-course-kit"
   },
   "plugins": [
     {
