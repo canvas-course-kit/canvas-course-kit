@@ -161,11 +161,30 @@ the playbook: **when a hand-built package behaves unlike a real export, diff
 the manifests.** A real export is the only authority, and you can produce one
 in two minutes.
 
-## Contributing
+## Reporting a Canvas behaviour that does not match these docs
 
-If you find a Canvas behaviour this document gets wrong, or a new one, a pull
-request adding it to the gotchas list with the symptom and the fix is the most
-useful thing you can send.
+Everything here was derived from one Canvas instance. Yours may differ by
+version, by institutional configuration, or by being Free-for-Teacher rather
+than institutional, and there is no way to know until someone says so.
+
+**If an AI agent worked around a problem for you, ask it to write the report.**
+It already knows what broke and what it changed, and otherwise the workaround
+stays in your session and the bug stays in this repo forever. Open an issue with
+the "Canvas behaved differently than documented" template, which asks for the
+four things that matter: the symptom **in Canvas** rather than in the script,
+whether you were building or mutating, what fixed it, and **whether
+`validate_package` caught it or passed clean**. That last one is the most
+valuable, because a validator that passes while the package is broken is a worse
+problem than the original bug.
+
+**Do not attach your `.imscc`, a chat transcript, or screenshots of a live
+course.** A Canvas export contains student names in page bodies, in filenames,
+and inside `<img alt>` attributes, because Canvas copies the original filename
+into the alt text, so renaming the file does not remove the name. Three
+sentences of symptom plus the fix is more useful than a long log anyway.
+
+A pull request adding a row to the gotchas table (symptom, cause, fix) is the
+single most useful thing you can send.
 
 ## License
 

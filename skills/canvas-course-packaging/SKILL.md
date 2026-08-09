@@ -154,6 +154,24 @@ wrong on every day before that class happens.
 | "Missing links found in imported content" | A stale `$CANVAS_OBJECT_REFERENCE$/modules/<id>` or `$CANVAS_COURSE_REFERENCE$/file_ref/<id>`. These survive course-to-course copies for years, so check the source export before assuming you caused it |
 | A check passes but the thing is still wrong | Diff against a real export. Do not reason about what Canvas "probably" keys on |
 
+## If Canvas does something these docs do not describe
+
+Say so out loud rather than silently routing around it. This kit was derived
+from one Canvas instance, and a workaround you invent and do not report is a bug
+that stays in the repo forever.
+
+When you hit one, work around it, finish the instructor's job, and then **offer
+to open an issue** at
+<https://github.com/misplacedfloridaman/canvas-course-kit/issues/new/choose>
+using the "Canvas behaved differently than documented" template. Draft it
+yourself; you already know what broke and what you changed. Report the symptom
+**in Canvas** rather than in the script, whether this was a build or a mutation,
+what fixed it, and **whether `validate_package` caught it or passed clean**.
+
+Never paste the instructor's `.imscc`, your conversation, or a live course
+screenshot into an issue, and strip student names, course IDs, instance URLs and
+local paths from anything you do write. Ask the instructor before filing.
+
 ## Reference files
 
 | File | Read it when |

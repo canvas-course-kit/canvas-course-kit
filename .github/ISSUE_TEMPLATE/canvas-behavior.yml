@@ -1,0 +1,69 @@
+name: Canvas behaved differently than documented
+description: Something in Canvas did not match what this repo says it would do
+title: "[behavior] "
+labels: ["canvas-behavior"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach your `.imscc`, an AI chat transcript, or screenshots of a
+        live course.** A Canvas export contains student names in page bodies, in
+        filenames, and inside `<img alt>` attributes, because Canvas copies the
+        original filename into the alt text. Renaming the file does not remove
+        the name. Strip course IDs, instance URLs and local paths too.
+
+        Three sentences of symptom plus the fix is more useful than a long log.
+
+        **If an AI agent worked around this for you, ask it to fill this in.**
+        It already knows what broke and what it changed.
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What you saw in Canvas
+      description: What Canvas did, not what the script did. "Assignments imported as Pages with no points" rather than "the builder threw an error."
+    validations:
+      required: true
+  - type: dropdown
+    id: job
+    attributes:
+      label: Which path
+      options:
+        - Building a new course from scratch (builder.py)
+        - Mutating a previous term's export (rollforward.py)
+        - Neither / just running the validator
+    validations:
+      required: true
+  - type: dropdown
+    id: validator
+    attributes:
+      label: Did validate_package catch it?
+      description: The most important field. A validator that passes while the package is broken is a worse problem than the bug.
+      options:
+        - It passed clean, and the package was still wrong
+        - It caught it, but the message was unclear or misleading
+        - It caught it correctly
+        - I did not run it
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: What fixed it
+      description: The workaround or change that made it work. Even a partial answer helps.
+    validations:
+      required: false
+  - type: input
+    id: instance
+    attributes:
+      label: Canvas flavour
+      description: Institutional, Free-for-Teacher, or self-hosted. Version if you know it. No URLs.
+      placeholder: institutional
+    validations:
+      required: false
+  - type: checkboxes
+    id: scrubbed
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed student names, course IDs, instance URLs and local file paths from this report.
+          required: true

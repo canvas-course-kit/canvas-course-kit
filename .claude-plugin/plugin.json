@@ -1,6 +1,6 @@
 {
   "name": "canvas-course-kit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Build and roll forward Canvas courses without API access by generating .imscc Course Export Packages, with validation that catches the silent import failures.",
   "author": {
     "name": "canvas-course-kit contributors",

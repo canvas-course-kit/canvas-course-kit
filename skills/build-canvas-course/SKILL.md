@@ -102,3 +102,10 @@ Compare the `<content_type>` counts in `course_settings/module_meta.xml` first.
 
 Report honestly: if a check was skipped or a step could not be run, say so
 plainly rather than implying the package is verified.
+
+## 7. Report anything the docs did not predict
+
+If Canvas did something these docs do not describe, tell the instructor, and
+offer to open an issue with the sanitized template. See the "If Canvas does
+something these docs do not describe" section of the `canvas-course-packaging`
+skill. Do not just quietly route around it.
