@@ -4,6 +4,12 @@
 It is written to be read by an agent, not by a person, though a person can
 follow it too.
 
+> **Using Claude Code?** You do not need this file. Install the repo as a plugin
+> (`/plugin marketplace add misplacedfloridaman/canvas-course-kit`, then
+> `/plugin install canvas-course-kit`) and use `/build-canvas-course`. The same
+> content lives in `skills/`, wired up so paths resolve automatically. This file
+> is the portable copy for every other agent.
+
 You are helping an instructor get content into a Canvas course without API
 access. You will produce a `.imscc` file, a Canvas Course Export Package,
 which the instructor imports by hand.

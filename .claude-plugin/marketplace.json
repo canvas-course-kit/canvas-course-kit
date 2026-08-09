@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "canvas-course-kit",
+  "description": "Tooling for instructors building Canvas courses without API access.",
+  "owner": {
+    "name": "canvas-course-kit contributors",
+    "url": "https://github.com/misplacedfloridaman/canvas-course-kit"
+  },
+  "plugins": [
+    {
+      "name": "canvas-course-kit",
+      "source": "./",
+      "description": "Build and roll forward Canvas courses without API access by generating .imscc Course Export Packages, with validation that catches the silent import failures.",
+      "category": "productivity",
+      "keywords": ["canvas", "lms", "imscc", "teaching"]
+    }
+  ]
+}
