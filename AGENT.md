@@ -6,7 +6,7 @@ follow it too.
 
 > **Using Claude Code?** You do not need this file. Install the repo as a plugin
 > (`/plugin marketplace add canvas-course-kit/canvas-course-kit`, then
-> `/plugin install canvas-course-kit`) and use `/build-canvas-course`. The same
+> `/plugin install canvas-course-kit`) and use `/canvas-build`. The same
 > content lives in `skills/`, wired up so paths resolve automatically. This file
 > is the portable copy for every other agent.
 

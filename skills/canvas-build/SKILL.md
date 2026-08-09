@@ -1,5 +1,5 @@
 ---
-name: build-canvas-course
+name: canvas-build
 description: Build a Canvas .imscc course package, or roll an existing course forward to a new term, guided end to end
 argument-hint: [course name or path to a previous term's .imscc export]
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, WebFetch]

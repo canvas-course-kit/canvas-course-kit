@@ -5,14 +5,14 @@ assignments, rubrics, due dates — **without API access**, by hand-building the
 same `.imscc` export package Canvas itself produces, and importing it.
 
 Then let an AI agent do the work. **If you use Claude Code**, install this as a
-plugin and you get a `/build-canvas-course` command that walks you through it:
+plugin and you get a `/canvas-build` command that walks you through it:
 
 ```
 /plugin marketplace add canvas-course-kit/canvas-course-kit
 /plugin install canvas-course-kit
 ```
 
-Then type `/build-canvas-course`. The plugin also loads a background skill, so
+Then type `/canvas-build`. The plugin also loads a background skill, so
 just saying "help me get my syllabus into Canvas" is enough to trigger it.
 
 **If you use anything else** — ChatGPT, Cursor, Copilot, the Claude web app —
@@ -105,7 +105,7 @@ point 3 of "The three things most likely to bite you" below.
 | Path | What it is |
 |---|---|
 | [`AGENT.md`](AGENT.md) | **Hand this to your AI agent.** Instructions, rules, and the questions it should ask you first. |
-| `skills/` | The same instructions packaged as a Claude Code plugin: `/build-canvas-course` plus an auto-triggering background skill. |
+| `skills/` | The same instructions packaged as a Claude Code plugin: `/canvas-build` plus an auto-triggering background skill. |
 | [`docs/playbook.md`](docs/playbook.md) | The format, the workflow, and every gotcha, with the reasoning. Read this if you are doing it yourself. |
 | [`docs/mutating-an-export.md`](docs/mutating-an-export.md) | Rolling a course forward from last term's export. Usually the right approach, and not the obvious one. |
 | `canvas_imscc/builder.py` | The engine. Modules, pages, files, assignments, groups, rubrics, manifest writing, validation, zipping. |
