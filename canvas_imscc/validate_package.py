@@ -29,6 +29,38 @@ import zipfile
 CC = "{http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1}"
 
 
+CCX = "{http://canvas.instructure.com/xsd/cccv1p0}"
+
+
+def _carries_links(name):
+    """Entries whose body can contain $IMS-CC-FILEBASE$ or $CANVAS_*$ links.
+
+    Not just .html. A discussion or announcement stores its body as escaped
+    HTML inside <text> in its own .xml at the package root, and assignment
+    settings can carry links too. Scanning only .html means dangling links in
+    every announcement are invisible; a package once shipped with seven of
+    them and validated clean.
+    """
+    if name.startswith("web_resources/") or name.endswith("/"):
+        return False
+    return name.endswith((".html", ".xml", ".txt"))
+
+
+def _link_text(name, data):
+    """The text of an entry, with any embedded escaped HTML decoded first.
+
+    A discussion or announcement stores its body as HTML *escaped inside XML*:
+    <text texttype="text/html">&lt;a href="...A&amp;amp;D.pdf"&gt;</text>.
+    That is two layers, so scanning the raw bytes and unescaping a matched
+    link once leaves "A&amp;D" and reports a dangling link for a file that is
+    present. Decode the wrapper first, then the usual single unescape of each
+    matched reference is correct.
+    """
+    if name.endswith(".xml") and 'texttype="text/html"' in data:
+        return _html.unescape(data)
+    return data
+
+
 def unescape_href(h):
     """Manifest hrefs are XML-escaped; zip entry names are not."""
     return _html.unescape(h)
@@ -108,6 +140,37 @@ def check(path, personal_names=()):
                 if ref not in known:
                     problems.append("module_meta references undeclared resource: %s" % ref)
 
+            # 5b. Every module and module ITEM in module_meta must also
+            #     appear in <organizations>. Canvas builds the module tree
+            #     from <organizations>; module_meta only decorates it with
+            #     workflow_state, content_type and indent. A module or item
+            #     added to module_meta alone is not malformed and not
+            #     dangling, it simply does not exist after import, silently.
+            #     A whole module of assignments has gone missing this way.
+            org_item_ids = set(re.findall(
+                r'<item[^>]*\bidentifier="([^"]+)"', man))
+            meta_root = None
+            try:
+                meta_root = ET.fromstring(meta)
+            except ET.ParseError:
+                pass                       # check 1 already reported this
+            if meta_root is not None:
+                for mod in meta_root:
+                    mod_title = mod.findtext("%stitle" % CCX) or "?"
+                    if mod.get("identifier") not in org_item_ids:
+                        problems.append(
+                            "module %r is in module_meta but NOT in "
+                            "<organizations>, so it will not import"
+                            % mod_title)
+                    holder = mod.find("%sitems" % CCX)
+                    for it in (holder if holder is not None else []):
+                        if it.get("identifier") not in org_item_ids:
+                            problems.append(
+                                "module item %r (in %r) is in module_meta but "
+                                "NOT in <organizations>, so it will not import"
+                                % (it.findtext("%stitle" % CCX) or "?",
+                                   mod_title))
+
             counts = {}
             for ct in re.findall(r"<content_type>([^<]+)</content_type>", meta):
                 counts[ct] = counts.get(ct, 0) + 1
@@ -120,8 +183,15 @@ def check(path, personal_names=()):
             w = [float(x) for x in re.findall(
                 r"<group_weight>([\d.]+)</group_weight>",
                 z.read("course_settings/assignment_groups.xml").decode())]
-            if w and abs(sum(w) - 100.0) > 0.01:
+            # All-zero weights mean the course does not use weighted groups
+            # at all: the gradebook is straight points. That is a normal,
+            # correct setup and a real Canvas export of such a course looks
+            # exactly like this, so flagging it cried wolf on valid packages.
+            if any(w) and abs(sum(w) - 100.0) > 0.01:
                 problems.append("assignment group weights sum to %s, not 100" % sum(w))
+            elif w and not any(w):
+                notes.append("assignment groups are unweighted (points-based "
+                             "gradebook)")
 
         # 7a. $CANVAS_OBJECT_REFERENCE$ and $CANVAS_COURSE_REFERENCE$ links
         #     must resolve to something in the package. These are Canvas's
@@ -133,8 +203,8 @@ def check(path, personal_names=()):
         if "course_settings/module_meta.xml" in names:
             ids |= set(re.findall(r"<identifierref>([^<]+)</identifierref>",
                                   z.read("course_settings/module_meta.xml").decode("utf8", "replace")))
-        for nm in sorted(n for n in names if n.endswith(".html")):
-            body = z.read(nm).decode("utf8", "replace")
+        for nm in sorted(n for n in names if _carries_links(n)):
+            body = _link_text(nm, z.read(nm).decode("utf8", "replace"))
             for ref in re.findall(
                     r"\$CANVAS_(?:OBJECT|COURSE)_REFERENCE\$/(?:modules|file_ref)/([a-z0-9]+)",
                     body):
@@ -147,8 +217,8 @@ def check(path, personal_names=()):
         #    compare after decoding both sides.
         import urllib.parse
         web = {n[len("web_resources/"):] for n in names if n.startswith("web_resources/")}
-        for nm in sorted(n for n in names if n.endswith(".html")):
-            body = z.read(nm).decode("utf8", "replace")
+        for nm in sorted(n for n in names if _carries_links(n)):
+            body = _link_text(nm, z.read(nm).decode("utf8", "replace"))
             for tgt in re.findall(r"\$IMS-CC-FILEBASE\$/([^\"'?#\s>]+)", body):
                 clean = urllib.parse.unquote(_html.unescape(tgt))
                 if clean not in web:

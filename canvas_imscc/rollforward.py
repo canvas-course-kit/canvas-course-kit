@@ -30,39 +30,111 @@ import zipfile
 # ---------------------------------------------------------------------------
 # Paths: the same file is spelled three different ways in one package
 # ---------------------------------------------------------------------------
+# Characters Canvas leaves LITERAL when it percent-encodes a path behind
+# $IMS-CC-FILEBASE$. Taken from real exports, not from a standard: a colon is
+# the one most likely to bite, because urllib encodes it as %3A by default but
+# Canvas writes "Project 1: Notes/x.gif" as "Project%201:%20Notes/x.gif".
+CANVAS_SAFE = "/:,()!$&+'"
+
+
 def path_spellings(path):
     """Every spelling of one path that might appear anywhere in a package.
 
-    imsmanifest.xml XML-escapes hrefs ("Presentations &amp; PDFs"). Page HTML
-    percent-encodes them behind $IMS-CC-FILEBASE$ and then XML-escapes that.
-    And Canvas does not percent-encode the way urllib does by default: it
-    leaves commas and several other characters literal, so "Dec 15, 2021"
-    comes out "Dec%2015,%202021", not "Dec%2015%2C%202021".
+    imsmanifest.xml XML-escapes hrefs ("Presentations &amp; PDFs", and a quote
+    as &quot;). Page HTML percent-encodes them behind $IMS-CC-FILEBASE$ and
+    then XML-escapes that. And Canvas does not percent-encode the way urllib
+    does by default: it leaves commas, colons and several other characters
+    literal, so "Dec 15, 2021" comes out "Dec%2015,%202021", not
+    "Dec%2015%2C%202021".
 
     Sorted longest first, so a plain spelling can never eat part of an
     escaped one.
+
+    PREFER remap_references() over building your own matcher on top of this.
+    Generating candidate spellings can only ever cover the encodings someone
+    thought of; decoding what is actually in the file cannot miss one.
     """
     out = set()
     for v in (path,
               urllib.parse.quote(path, safe="/"),
-              urllib.parse.quote(path, safe="/,()!$&+")):
+              urllib.parse.quote(path, safe=CANVAS_SAFE)):
         out.add(v)
+        # quote=False leaves a literal " alone. A manifest href CANNOT: it
+        # writes &quot;, or the attribute would end early and the XML would be
+        # malformed. A real export contains
+        #   href="web_resources/Rikard &quot;Color Harmony...&quot; (2015).pdf"
+        # and omitting this spelling meant such files were never rewritten.
         out.add(_html.escape(v, quote=False))
+        out.add(_html.escape(v, quote=True))
     return sorted(out, key=len, reverse=True)
 
 
 def xml_href(path):
-    """A path as it must be written inside an XML attribute."""
-    return _html.escape(path, quote=False)
+    """A path as it must be written inside an XML attribute.
+
+    The double quote MUST be escaped. A filename containing one is not exotic
+    (an article title in quotation marks, saved as a PDF, produces one), and
+    leaving it literal ends the attribute early and makes imsmanifest.xml
+    malformed, which imports "successfully" and renders every module item as
+    inert, unclickable text.
+
+    The apostrophe is deliberately left literal: real Canvas exports contain
+    &quot; and &amp; but never &#x27;, and html.escape(quote=True) would emit
+    it, so output would stop matching what Canvas itself writes.
+    """
+    return (path.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;"))
 
 
 def html_href(path):
     """A path as it must be written behind $IMS-CC-FILEBASE$ in page HTML."""
-    return _html.escape(urllib.parse.quote(path, safe="/,()!$&+"), quote=False)
+    return _html.escape(urllib.parse.quote(path, safe=CANVAS_SAFE), quote=False)
+
+
+_FILEBASE_RE = re.compile(r"(\$IMS-CC-FILEBASE\$/)([^\"'?#\s>]+)")
+_ATTR_RE = re.compile(r'((?:href|src)=")([^"]+)(")')
+
+
+def remap_references(text, remap, mode, prefix="web_resources/"):
+    """Rewrite references to moved files by DECODING them, not by guessing.
+
+    Same job as apply_remap, but instead of generating candidate spellings of
+    each old path and hoping one appears, it finds every reference the format
+    can contain, decodes it to a plain path, looks that up, and re-emits it in
+    the encoding this format requires. A spelling nobody anticipated is still
+    matched, because it is decoded rather than compared. A reference to a path
+    that is not being moved is left exactly as it was.
+
+    mode is "xml" for the manifest and settings files, "html" for page bodies.
+    """
+    emit = xml_href if mode == "xml" else html_href
+
+    def fix_filebase(m):
+        head, ref = m.group(1), m.group(2)
+        rel = urllib.parse.unquote(_html.unescape(ref))
+        return head + html_href(remap[rel]) if rel in remap else m.group(0)
+
+    def fix_attr(m):
+        head, ref, tail = m.groups()
+        plain = _html.unescape(ref)
+        for candidate in (plain, urllib.parse.unquote(plain)):
+            if candidate.startswith(prefix) and candidate[len(prefix):] in remap:
+                return head + emit(prefix + remap[candidate[len(prefix):]]) + tail
+        return m.group(0)
+
+    text = _FILEBASE_RE.sub(fix_filebase, text)
+    return _ATTR_RE.sub(fix_attr, text)
 
 
 def apply_remap(text, remap, mode):
     """Rewrite every spelling of each old path to ONE correctly encoded new one.
+
+    Consider remap_references() instead: it decodes each reference rather than
+    generating candidate spellings, so it cannot miss an encoding. This
+    function is kept because it also rewrites bare path mentions outside of an
+    attribute, which the parsing version deliberately leaves alone.
 
     mode is "xml" for manifest/settings files, "html" for page bodies.
 
