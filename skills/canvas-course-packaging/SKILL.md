@@ -109,6 +109,42 @@ Instructure's own open-source viewer, which runs locally in the browser and
 renders the real module and item tree. Do not build your own preview; that was
 tried and thrown away.
 
+**Say this step out loud in your handoff, not only in a written checklist.** It
+is the only point where the instructor reads the actual page and assignment
+text before it lands in a live course, and it is the step most easily skipped
+because the import feels like the "real" action. A checklist item they never
+read is not a verification step.
+
+**The viewer does not upload anything.** It is a client-side app: the cartridge
+is parsed in the browser and never leaves the machine. Say so, because
+instructors reasonably hesitate to drop a course package onto a random website,
+and a package derived from a real course may still contain student data.
+
+**If the hosted site is down, blocked by the institution, or the instructor
+would rather not rely on it, it can be run locally.** The source is
+<https://github.com/instructure/common-cartridge-viewer>, MIT licensed, so
+keeping a copy is permitted:
+
+```bash
+git clone https://github.com/instructure/common-cartridge-viewer.git
+cd common-cartridge-viewer
+export NODE_OPTIONS=--openssl-legacy-provider   # needed on modern Node
+npm ci && npm run build && npm start
+```
+
+A `docker compose build && docker compose up -d` path is bundled too, which
+avoids the Node version problem entirely. A community fork exists at
+<https://github.com/StrongMind/common-cartridge-viewer> if the upstream repo
+ever disappears.
+
+**The viewer complements your own checks, it does not replace them, and the
+reverse is also true.** Parsing the package yourself catches structural faults
+the viewer renders right past: unresolvable `$IMS-CC-FILEBASE$` links, manifest
+hrefs with no matching zip entry, due dates on the wrong side of a DST
+boundary. The viewer catches what parsing cannot: prose that reads wrong, a
+heading that lost its emphasis, last term's dates still sitting in a body. Run
+both, and do not let a clean validator tempt you into skipping the read.
+
 Then tell the instructor to import with **"Select specific content"** rather
 than "All content", so Canvas pauses and shows what *it* found before
 committing.

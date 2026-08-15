@@ -82,8 +82,12 @@ these, because the two can disagree and the disagreement runs in the dangerous
 direction:
 
 1. Upload the `.imscc` to <https://common-cartridge-viewer.netlify.app/> and
-   look at the module tree. It runs locally in the browser; nothing is uploaded
-   anywhere.
+   look at the module tree, and at the actual page and assignment text. It runs
+   locally in the browser; nothing is uploaded anywhere. **Put this in the
+   sentences you write to the instructor, not only in a checklist file** — it is
+   the only chance to read the content before it is inside a live course, and it
+   is the easiest step to skip. If the site is unreachable or unwanted, it is
+   MIT licensed and self-hostable; see the `canvas-course-packaging` skill.
 2. Import into an **empty course shell**, Settings > Import Course Content,
    Content Type "Canvas Course Export Package", and choose **"Select specific
    content"** rather than "All content". That screen is Canvas's own importer

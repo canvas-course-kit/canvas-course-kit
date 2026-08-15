@@ -1,4 +1,5 @@
-__pycache__/
-*.pyc
-*.imscc
 build/
+.DS_Store
+*.imscc
+*.pyc
+__pycache__/
