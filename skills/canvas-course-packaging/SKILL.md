@@ -65,24 +65,44 @@ The reasoning behind each is in
    into Files. `builder.py` handles this. In a real export it is already
    correct, so do not disturb it.
 
-3. **Import into an EMPTY course shell.** Canvas never deletes on import.
+3. **`module_meta.xml` decorates the module tree; `<organizations>` IS the
+   module tree.** Canvas builds modules from `<organizations>` in
+   `imsmanifest.xml`. `course_settings/module_meta.xml` only adds
+   `workflow_state`, `content_type` and `indent` to what is already there. A
+   module or module item added to `module_meta` alone is not malformed and not
+   dangling: it simply does not exist after import, silently. A whole module of
+   assignments has gone missing this way. **Generate one from the other rather
+   than editing both**, and note that for some items a real export sets
+   `identifierref` in `module_meta` to the item's OWN identifier while
+   `<organizations>` holds the true target, so regenerating naively destroys
+   those links. `validate_package` now fails on any mismatch.
+
+4. **Import into an EMPTY course shell.** Canvas never deletes on import.
    Clearing a bad import means the instructor ticking a delete box on every item
    by hand, one at a time, with no bulk option.
 
-4. **Verify twice, in two places, because they can disagree.** See below.
+5. **Verify twice, in two places, because they can disagree.** See below.
 
-5. **Never invent a URL from a pattern.** Fetch each external link and confirm
+6. **Never invent a URL from a pattern.** Fetch each external link and confirm
    it resolves *and still points at what you think it does*. A constructed
    museum-collection URL once 301'd to a different artist's page and a
    status-code check called it a pass.
 
-6. **Check for personal data before shipping anything derived from a real
+7. **Check for personal data before shipping anything derived from a real
    course.** A previous term's export contains student names in page bodies, in
    filenames, and inside `<img alt>` attributes, because Canvas copies the
    original filename into the alt text. Renaming the file does not remove the
    name. Pass `--names` to the validator with names that must not appear.
 
-7. **When you change the shape of your data, check that your checker still sees
+8. **Decode references, do not guess how they are spelled.** Canvas writes one
+   path several ways: `&quot;` inside a manifest href, and percent-encoding
+   that leaves colons and commas literal (`Project%201:%20Notes/rock.gif`).
+   Generating candidate spellings can only cover the encodings you thought of.
+   `rollforward.remap_references()` parses each reference, decodes it, looks it
+   up and re-emits it, so an unfamiliar spelling still matches and a path you
+   are not moving is left untouched.
+
+9. **When you change the shape of your data, check that your checker still sees
    it.** A validator whose regex quietly stops matching still prints a clean
    pass. Prefer parsing over pattern-matching, and make checks fail loudly
    rather than skip silently.
@@ -188,6 +208,10 @@ wrong on every day before that class happens.
 | A file link is broken in the live course | `$IMS-CC-FILEBASE$` links are relative to `web_resources/`, percent-encoded then XML-escaped, and Canvas leaves commas literal unlike `urllib.parse.quote`. Use `rollforward.html_href()` |
 | Something you changed did not change | You matched one spelling of a path. There are at least three. Use `rollforward.path_spellings()` |
 | "Missing links found in imported content" | A stale `$CANVAS_OBJECT_REFERENCE$/modules/<id>` or `$CANVAS_COURSE_REFERENCE$/file_ref/<id>`. These survive course-to-course copies for years, so check the source export before assuming you caused it |
+| A module or item you added never appears in Canvas | Rule 3. It went into `module_meta` but not `<organizations>` |
+| A dangling link nobody's checker found | Discussion and announcement bodies are escaped HTML inside their own `.xml`, not `.html`. Scan every text entry |
+| "assignment group weights sum to 0.0, not 100" on a valid course | Not an error. All-zero weights mean an unweighted, points-based gradebook |
+| A file you moved still 404s, or the manifest became invalid XML | A spelling was missed, or a `"` in a filename was written literally into an href. Use `rollforward.remap_references()` and `xml_href()` |
 | A check passes but the thing is still wrong | Diff against a real export. Do not reason about what Canvas "probably" keys on |
 
 ## If Canvas does something these docs do not describe

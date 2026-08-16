@@ -75,7 +75,7 @@ unclickable text** in both the cartridge viewer and Canvas.
 
 `rf.assert_xml_parses()` is one call and catches the entire class instantly.
 
-### Match many spellings, emit exactly one
+### Decode references rather than guessing their spelling
 
 The same file is spelled at least three ways in one package: literal in zip
 entry names, XML-escaped in the manifest, percent-encoded-then-XML-escaped
@@ -86,8 +86,31 @@ The bug above came from pairing old spellings against new spellings and
 replacing plain-with-plain, escaped-with-escaped. That is wrong the moment the
 two paths need different escaping.
 
-Use `rf.path_spellings()` to match any spelling, and `rf.xml_href()` /
-`rf.html_href()` to emit the one the destination format requires.
+**Better: do not enumerate spellings at all.** `rf.remap_references()` finds
+every reference the format can contain, decodes it to a plain path, looks that
+up in your remap, and re-emits it in the encoding the destination requires. A
+spelling nobody anticipated still matches, because it is decoded rather than
+compared, and a path you are not moving is left byte-for-byte alone.
+
+```python
+data = rf.remap_references(text, {"old/x.pdf": "New Folder/x.pdf"}, "xml")
+```
+
+`rf.path_spellings()` remains for matching bare path mentions outside an
+attribute, and `rf.xml_href()` / `rf.html_href()` to emit one correctly. Two
+spellings it missed until they were found in a real export, both worth knowing
+because neither is what a standard library produces by default:
+
+- a manifest href writes a double quote as `&quot;`
+  (`Rikard &quot;Color Harmony&quot; (2015).pdf`), and a filename containing a
+  quotation mark is not exotic. Writing it literally ends the attribute early
+  and makes the manifest malformed, which is rule 1's silent disaster.
+- Canvas's percent-encoding leaves the **colon** literal:
+  `Project 1: Notes/rock.gif` becomes `Project%201:%20Notes/rock.gif`, not
+  `%3A`. Real exports contain folders named this way.
+
+Canvas writes `&quot;` and `&amp;` but never `&#x27;`, so `xml_href()` leaves
+apostrophes literal to match.
 
 A related trap: if you build parallel old/new variant lists to `zip()`
 together, **do not deduplicate them**. A path with no spaces quotes to itself,
