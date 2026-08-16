@@ -252,6 +252,70 @@ def main():
     ok("unweighted gradebook is noted instead",
        any("unweighted" in n for n in notes2), str(notes2[:3]))
 
+    print("\n7e. Rubric arithmetic: the two ways a criteria rewrite goes wrong")
+    # Neither of these is malformed, dangling, or visible in the cartridge
+    # viewer. Both import clean and only surface when someone grades.
+    rubrics = z_read(built, "course_settings/rubrics.xml")
+    root = ET.fromstring(rubrics)
+    CCX = "{http://canvas.instructure.com/xsd/cccv1p0}"
+
+    # (a) the naive rewrite: zip the new list against the old elements. Going
+    #     from three criteria to four drops the fourth on the floor.
+    naive = ET.fromstring(rubrics)
+    want = [("Process", 30.0), ("Execution", 30.0),
+            ("Engagement", 20.0), ("Research", 20.0)]
+    rub = naive[0]
+    holder = rub.find(CCX + "criteria")
+    for i, (desc, pts) in enumerate(want):
+        old = list(holder)
+        if i >= len(old):
+            continue                     # <- the bug, written out plainly
+        old[i].find(CCX + "description").text = desc
+        old[i].find(CCX + "points").text = "%.1f" % pts
+    dropped = tmp / "rubric-dropped.imscc"
+    rf.stream_rewrite(built, dropped,
+                      replace={"course_settings/rubrics.xml": ET.tostring(naive)})
+    problems, _ = check(dropped)
+    ok("a silently dropped criterion is reported",
+       any("criteria sum to" in p for p in problems), str(problems[:2]))
+
+    # (b) the criterion is repointed but its rating scale keeps last term's
+    #     numbers, so a 30-point criterion still tops out at 40.
+    stale = ET.fromstring(rubrics)
+    c0 = stale[0].find(CCX + "criteria")[0]
+    c0.find(CCX + "points").text = "30.0"
+    scaled = tmp / "rubric-stale-scale.imscc"
+    rf.stream_rewrite(built, scaled,
+                      replace={"course_settings/rubrics.xml": ET.tostring(stale)})
+    problems, _ = check(scaled)
+    ok("a rating scale left on the old maximum is reported",
+       any("tops out at" in p for p in problems), str(problems[:2]))
+
+    # (c) rewrite_rubric() does the same edit correctly: four criteria out of
+    #     three, every rating rescaled, and it still validates.
+    fixed = ET.fromstring(rubrics)
+    rf.rewrite_rubric(fixed[0], want, title="Project Rubric, Fall 2026")
+    crits = fixed[0].findall(".//" + CCX + "criterion")
+    ok("rewrite_rubric keeps the added criterion", len(crits) == 4, str(len(crits)))
+    tops = [max(float(r.findtext(CCX + "points"))
+                for rat in c.findall(CCX + "ratings") for r in rat) for c in crits]
+    ok("rewrite_rubric rescales every rating scale",
+       tops == [30.0, 30.0, 20.0, 20.0], str(tops))
+    good = tmp / "rubric-fixed.imscc"
+    rf.stream_rewrite(built, good,
+                      replace={"course_settings/rubrics.xml": ET.tostring(fixed)})
+    problems, _ = check(good)
+    ok("the corrected rubric validates clean",
+       not any("rubric" in p for p in problems), str(problems[:2]))
+
+    # (d) and it refuses to write a rubric that does not add up at all.
+    try:
+        rf.rewrite_rubric(ET.fromstring(rubrics)[0], [("Only", 10.0)])
+        raised = False
+    except SystemExit:
+        raised = True
+    ok("rewrite_rubric refuses criteria that miss points_possible", raised)
+
     print("\n8. Personal-data sweep finds a name in a page body")
     problems, _ = check(built, ["Firstname"])
     ok("name in a file body is reported",

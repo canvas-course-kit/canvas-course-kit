@@ -156,6 +156,38 @@ course's timezone and where its daylight-saving boundary falls within the term.
 The cheap confirmation: leave one assignment's date untouched and compare your
 output against what Canvas itself wrote.
 
+### Rewriting a rubric's criteria: use `rf.rewrite_rubric()`
+
+Renaming or repointing a rubric's criteria in place is the natural way to carry
+a rubric forward. The obvious implementation walks your new list of
+`(description, points)` against the `<criterion>` elements already in
+`course_settings/rubrics.xml`, and it has two bugs. Both import silently, both
+survive the cartridge viewer, and neither is visible anywhere until somebody
+grades with the rubric.
+
+**A criterion past the end of the old list is dropped without a word.** Going
+from three criteria to four left a 100-point assignment carrying an 80-point
+rubric. Nothing said so, because no other part of a package reads those
+numbers.
+
+**Rescaling a rating scale after you have already written the new criterion
+value divides by itself.** The natural line is
+`rating = old / oldmax * new`, and if `oldmax` is read from the criterion after
+you set it, `oldmax == new` and every rating keeps last term's points. A
+criterion cut from 40 to 30 still topped out at a 40-point "Excellent". Read
+the old maximum first.
+
+`rf.rewrite_rubric(rubric_el, [(desc, points), ...], title=...)` does both
+correctly: extra criteria are deep-copied from the last one so they inherit a
+rating scale and get fresh ids, and every rating is rescaled from the value it
+had before the criterion was touched. It raises if the criteria do not sum to
+the rubric's own `points_possible`, and `validate_package` checks the same two
+things on the finished artifact.
+
+This one belongs to the wider rule at the top of `playbook.md`: when you change
+the shape of your data, check that your checker still sees it. A points total
+that counts assignments will not notice a rubric that has stopped adding up.
+
 ### Verify by diffing against the source
 
 Do not trust your own checks alone. `rf.diff_packages()` lists what was added,

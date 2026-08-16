@@ -226,6 +226,13 @@ is what the instructor grades with.
 Each rating is keyed to its criterion by `criterion_id` and needs its own
 `<id>`. Real exports use opaque strings, so any stable unique value works.
 
+**A rubric's criteria must sum to its own `points_possible`, and each rating
+scale must top out at its criterion's points.** Canvas imports one that does
+not without a word, and the arithmetic appears nowhere until someone grades
+with it. If you are *editing* an existing rubric rather than building one, use
+`rollforward.rewrite_rubric()`; the two ways a hand-rolled rewrite goes wrong
+are in [`mutating-an-export.md`](mutating-an-export.md).
+
 ## Pattern: instructor-only notes
 
 Any page meant to be adapted by another instructor benefits from a visible
@@ -371,6 +378,8 @@ Before handing off any `.imscc`:
    `$CANVAS_COURSE_REFERENCE$` links.
 8. No personal data in file contents **or in zip entry names**.
 9. No empty directory entries.
+9b. Every rubric's criteria sum to its `points_possible`, and every rating
+    scale tops out at its criterion's points.
 10. Eyes on it in the cartridge viewer, **and** on Canvas's own Select
     Content screen at import time. They can disagree.
 11. Once, after the first import: round-trip and diff.
