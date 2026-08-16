@@ -193,6 +193,65 @@ def check(path, personal_names=()):
                 notes.append("assignment groups are unweighted (points-based "
                              "gradebook)")
 
+        # 6b. Rubrics have to add up. Canvas imports a rubric whose criteria do
+        #     not sum to its points_possible without a word of complaint, and
+        #     the arithmetic is not visible anywhere until someone grades with
+        #     it. Two ways a mutation produces one:
+        #
+        #     A criterion SILENTLY DROPPED. Rewriting a rubric's criteria in
+        #     place, by zipping a new list against the elements already there,
+        #     ignores anything past the end of the old list. Going from three
+        #     criteria to four left a 100-point assignment carrying an 80-point
+        #     rubric, and nothing anywhere said so.
+        #
+        #     A RATING SCALE left on the old numbers. Rescaling each rating by
+        #     old/oldmax*new after already writing the new value into the
+        #     criterion makes oldmax equal to new, so every rating divides by
+        #     itself and keeps last year's points. A 30-point criterion still
+        #     topped out at a 40-point "Excellent".
+        #
+        #     Both survived a full build, the package's own checks and a
+        #     cartridge-viewer pass, because nothing else in a package reads
+        #     these numbers.
+        if "course_settings/rubrics.xml" in names:
+            try:
+                rroot = ET.fromstring(z.read("course_settings/rubrics.xml"))
+            except ET.ParseError:
+                rroot = None
+            for rub in rroot if rroot is not None else ():
+                title = rub.findtext(CCX + "title") or "?"
+                try:
+                    pp = float(rub.findtext(CCX + "points_possible") or 0)
+                except ValueError:
+                    pp = 0.0
+                crits = rub.findall(".//" + CCX + "criterion")
+                if not crits:
+                    problems.append("rubric %r has no criteria" % title)
+                    continue
+                total = 0.0
+                for c in crits:
+                    try:
+                        cp = float(c.findtext(CCX + "points") or 0)
+                    except ValueError:
+                        cp = 0.0
+                    total += cp
+                    tops = []
+                    for rat in c.findall(CCX + "ratings"):
+                        for r in rat:
+                            try:
+                                tops.append(float(r.findtext(CCX + "points") or 0))
+                            except ValueError:
+                                pass
+                    if tops and cp and abs(max(tops) - cp) > 0.001:
+                        problems.append(
+                            "rubric %r criterion %r tops out at %g but the criterion is "
+                            "worth %g" % (title, c.findtext(CCX + "description"),
+                                          max(tops), cp))
+                if pp and abs(total - pp) > 0.001:
+                    problems.append(
+                        "rubric %r criteria sum to %g but points_possible is %g"
+                        % (title, total, pp))
+
         # 7a. $CANVAS_OBJECT_REFERENCE$ and $CANVAS_COURSE_REFERENCE$ links
         #     must resolve to something in the package. These are Canvas's
         #     placeholders for "a module in this course" and "a file in this

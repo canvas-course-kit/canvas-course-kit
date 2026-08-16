@@ -19,6 +19,7 @@ the full walkthrough and examples.
 
 Every function here exists because of a specific bug. The comments say which.
 """
+import copy
 import datetime
 import html as _html
 import re
@@ -219,6 +220,106 @@ def set_due(assignment_xml, due_at, all_day_date, all_day):
     x = re.sub(r"<all_day\s*/>|<all_day>.*?</all_day>",
                "<all_day>%s</all_day>" % all_day, x, count=1)
     return x
+
+
+# ---------------------------------------------------------------------------
+# Rubrics
+# ---------------------------------------------------------------------------
+CCX = "{http://canvas.instructure.com/xsd/cccv1p0}"
+
+
+def rewrite_rubric(rubric_el, criteria, title=None, ns=CCX):
+    """Replace a rubric's criteria in place, keeping its rating scales.
+
+    `criteria` is [(description, points), ...] in the order they should
+    appear. `rubric_el` is one <rubric> element from
+    course_settings/rubrics.xml, mutated in place.
+
+    Use this rather than zipping your new list against the elements already
+    there. That obvious version has two bugs, both of which import silently
+    and are invisible until someone grades with the rubric.
+
+    ONE: a criterion past the end of the old list is dropped without a word.
+    A rubric that went from three criteria to four imported totalling 80
+    against a 100-point assignment. Extras here are deep-copied from the last
+    criterion, so they inherit its rating scale, and are given fresh ids.
+
+    TWO: rescaling a rating by old/oldmax*new AFTER writing the new value into
+    the criterion makes oldmax == new, so every rating divides by itself and
+    keeps last term's numbers. A criterion cut from 40 points to 30 still
+    topped out at a 40-point "Excellent". The old maximum is read here before
+    anything is overwritten.
+
+    Raises SystemExit if the new criteria do not sum to the rubric's own
+    points_possible, because a rubric that does not add up is not a thing you
+    want to discover from a gradebook.
+    """
+    if title is not None:
+        el = rubric_el.find(ns + "title")
+        if el is not None:
+            el.text = title
+
+    holder = rubric_el.find(ns + "criteria")
+    existing = list(holder) if holder is not None else []
+    if not existing:
+        raise SystemExit("rubric %r has no criteria to rewrite"
+                         % (rubric_el.findtext(ns + "title") or "?"))
+
+    for i, (desc, pts) in enumerate(criteria):
+        if i < len(existing):
+            c = existing[i]
+        else:
+            c = copy.deepcopy(existing[-1])
+            cid = "_cck%d" % (i + 1)
+            el = c.find(ns + "criterion_id")
+            if el is not None:
+                el.text = cid
+            for rat in c.findall(ns + "ratings"):
+                for j, r in enumerate(rat):
+                    el = r.find(ns + "criterion_id")
+                    if el is not None:
+                        el.text = cid
+                    el = r.find(ns + "id")
+                    if el is not None:
+                        el.text = "%s_r%d" % (cid, j)
+            holder.append(c)
+
+        d = c.find(ns + "description")
+        p = c.find(ns + "points")
+        try:
+            oldmax = float(p.text) if p is not None and p.text else 0.0
+        except ValueError:
+            oldmax = 0.0
+        if d is not None:
+            d.text = desc
+        if p is not None:
+            p.text = "%.1f" % pts
+        for rat in c.findall(ns + "ratings"):
+            for r in rat:
+                el = r.find(ns + "criterion_description")
+                if el is not None:
+                    el.text = desc
+                el = r.find(ns + "points")
+                if el is not None and oldmax:
+                    try:
+                        el.text = "%.1f" % (float(el.text) / oldmax * pts)
+                    except (TypeError, ValueError):
+                        pass
+
+    for extra in list(holder)[len(criteria):]:
+        holder.remove(extra)
+
+    total = sum(p for _, p in criteria)
+    pp_el = rubric_el.find(ns + "points_possible")
+    try:
+        pp = float(pp_el.text) if pp_el is not None and pp_el.text else 0.0
+    except ValueError:
+        pp = 0.0
+    if pp and abs(total - pp) > 0.001:
+        raise SystemExit(
+            "rubric %r criteria sum to %g but points_possible is %g"
+            % (rubric_el.findtext(ns + "title") or "?", total, pp))
+    return rubric_el
 
 
 # ---------------------------------------------------------------------------

@@ -212,6 +212,8 @@ wrong on every day before that class happens.
 | A dangling link nobody's checker found | Discussion and announcement bodies are escaped HTML inside their own `.xml`, not `.html`. Scan every text entry |
 | "assignment group weights sum to 0.0, not 100" on a valid course | Not an error. All-zero weights mean an unweighted, points-based gradebook |
 | A file you moved still 404s, or the manifest became invalid XML | A spelling was missed, or a `"` in a filename was written literally into an href. Use `rollforward.remap_references()` and `xml_href()` |
+| A rubric grades out of less than the assignment is worth | A criterion added beyond the count the old rubric had was silently dropped by an in-place rewrite. Use `rollforward.rewrite_rubric()` |
+| A rubric's rating scale still shows last term's points | The rescale read the criterion's old maximum after overwriting it, so every rating divided by itself. Read it first, or use `rollforward.rewrite_rubric()` |
 | A check passes but the thing is still wrong | Diff against a real export. Do not reason about what Canvas "probably" keys on |
 
 ## If Canvas does something these docs do not describe
@@ -240,5 +242,5 @@ local paths from anything you do write. Ask the instructor before filing.
 | [`docs/mutating-an-export.md`](${CLAUDE_PLUGIN_ROOT}/docs/mutating-an-export.md) | Rolling a course forward from last term's export |
 | [`examples/build_example_course.py`](${CLAUDE_PLUGIN_ROOT}/examples/build_example_course.py) | You want a complete runnable build script to copy |
 | [`canvas_imscc/builder.py`](${CLAUDE_PLUGIN_ROOT}/canvas_imscc/builder.py) | You need the exact API for modules, pages, files, assignments, groups, rubrics |
-| [`canvas_imscc/rollforward.py`](${CLAUDE_PLUGIN_ROOT}/canvas_imscc/rollforward.py) | Path encoding, due dates, streaming rewrites, diffing two packages |
+| [`canvas_imscc/rollforward.py`](${CLAUDE_PLUGIN_ROOT}/canvas_imscc/rollforward.py) | Path encoding, due dates, rubric criteria, streaming rewrites, diffing two packages |
 | [`tests/smoke_test.py`](${CLAUDE_PLUGIN_ROOT}/tests/smoke_test.py) | Verifying the toolchain works in a new environment |

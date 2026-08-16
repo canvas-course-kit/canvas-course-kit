@@ -109,7 +109,7 @@ point 3 of "The three things most likely to bite you" below.
 | [`docs/playbook.md`](docs/playbook.md) | The format, the workflow, and every gotcha, with the reasoning. Read this if you are doing it yourself. |
 | [`docs/mutating-an-export.md`](docs/mutating-an-export.md) | Rolling a course forward from last term's export. Usually the right approach, and not the obvious one. |
 | `canvas_imscc/builder.py` | The engine. Modules, pages, files, assignments, groups, rubrics, manifest writing, validation, zipping. |
-| `canvas_imscc/rollforward.py` | Helpers for mutating an existing export: path encoding, due dates, finding and removing things, streaming rewrites, diffing. |
+| `canvas_imscc/rollforward.py` | Helpers for mutating an existing export: path encoding, due dates, rubric criteria, finding and removing things, streaming rewrites, diffing. |
 | `canvas_imscc/validate_package.py` | Standalone checker. Runs against any `.imscc`, however it was made. |
 | `examples/` | A complete, runnable course. Copy it and edit. |
 | `tests/smoke_test.py` | Run this first in a new environment. Builds, validates, mutates and deliberately breaks a package to prove the checks fire. |
