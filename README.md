@@ -52,6 +52,9 @@ python3 examples/build_example_course.py
 
 # Check the result
 python3 -m canvas_imscc.validate_package "/tmp/EXAMPLE 101.imscc"
+
+# Check it for accessibility
+python3 -m canvas_imscc.accessibility "/tmp/EXAMPLE 101.imscc"
 ```
 
 Then upload the `.imscc` to
@@ -111,6 +114,7 @@ point 3 of "The three things most likely to bite you" below.
 | `canvas_imscc/builder.py` | The engine. Modules, pages, files, assignments, groups, rubrics, manifest writing, validation, zipping. |
 | `canvas_imscc/rollforward.py` | Helpers for mutating an existing export: path encoding, due dates, rubric criteria, finding and removing things, streaming rewrites, diffing. |
 | `canvas_imscc/validate_package.py` | Standalone checker. Runs against any `.imscc`, however it was made. |
+| `canvas_imscc/accessibility.py` | Accessibility audit of every HTML body in a package, plus a read-only report on PDFs. See "Accessibility" below. |
 | `examples/` | A complete, runnable course. Copy it and edit. |
 | `tests/smoke_test.py` | Run this first in a new environment. Builds, validates, mutates and deliberately breaks a package to prove the checks fire. |
 
@@ -147,6 +151,67 @@ touches under 5% of a package. See
    `<content_type>` counts in `course_settings/module_meta.xml` first: that is
    where "11 Assignments" showing up as "11 WikiPages" becomes visible in a
    single line.
+
+## Accessibility
+
+Institutions are pushing hard on Canvas accessibility scores, and the tools that
+produce those scores (Ally, UDOIT) report a problem long after you have built
+the course. This checks the package before you import it:
+
+```bash
+python3 -m canvas_imscc.accessibility "My Course.imscc"          # full report
+python3 -m canvas_imscc.accessibility ./unzipped-export --strict  # exit 1 on errors
+python3 -m canvas_imscc.validate_package "My Course.imscc" --a11y # both at once
+```
+
+It audits every HTML body in the package, **including the ones escaped inside
+`<text texttype="text/html">` in discussions and announcements**, which is where
+a checker that only opens `.html` files quietly misses an entire content type.
+
+Findings are split in two, and the split is the point:
+
+- **Errors** are machine-decidable failures: an `<img>` with no `alt`, a heading
+  level skipped, `<h2>` to `<h4>`, a table with no `<th>`, an `<iframe>` with no
+  `title`, link text that is only "click here", and text whose inline colour
+  falls below the WCAG contrast ratio for its size.
+- **Warnings** need a human: alt text that is vague or is really a filename,
+  a bold paragraph standing in for a heading, a raw URL used as link text, a
+  table with no caption or unscoped headers, and any embedded video, which needs
+  captions no checker can verify.
+
+**Accessibility findings do not fail your build.** `validate_package` reports a
+one-line summary and leaves its exit status alone, because a missing `alt`
+attribute is not a reason to block a package, and a validator that cries wolf is
+one people learn to ignore. Once a course is clean, `--a11y-strict` (or
+`--strict`) keeps it that way in CI.
+
+### On alt text, and a trap specific to Canvas
+
+Canvas copies a file's original filename into its `<img alt>` on import. That is
+why real courses are full of alt text like `Screen%20Shot%202024-01-02.png`,
+which passes any "does it have an alt attribute" check and tells a blind student
+nothing. It is also how a student's name survives in a package long after the
+file was renamed, which is why the same pattern is a privacy check in
+`validate_package --names`. The audit reports filename-shaped alt text as an
+error for both reasons.
+
+### PDFs are reported, never rewritten
+
+Untagged PDFs are usually the largest single component of a low Ally score, so
+the audit inventories them: whether each has a structure tree, a document
+language and a title. It does not modify them. Generating a real structure tree
+is not something to fake, and writing `/MarkInfo /Marked true` without one makes
+a file *claim* to be tagged, which turns some checkers green while a screen
+reader still gets nothing out of it. Remediate PDFs in a tool built for it, ask
+the publisher for an accessible copy, or replace them with HTML pages, which you
+control completely.
+
+### What this cannot tell you
+
+An automated checker reaches roughly half of WCAG. It cannot judge whether alt
+text is *accurate*, whether captions are correct rather than merely present,
+whether colour is the only thing carrying a distinction, or whether the reading
+order makes sense. **A clean report is a floor, not a pass.**
 
 ## Where this came from
 

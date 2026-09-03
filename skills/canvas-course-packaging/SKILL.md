@@ -113,8 +113,22 @@ The library lives at the plugin root, so set `PYTHONPATH`:
 
 ```bash
 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.validate_package "Course.imscc"
-PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.validate_package "Course.imscc" --names "Jane Doe" "John Roe"
+
+# --names takes a FILE, one name per line, not names on the command line
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.validate_package "Course.imscc" --names names.txt
+
+# Accessibility, which is scored separately by Ally/UDOIT once the course is live
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.accessibility "Course.imscc"
 ```
+
+**Run the accessibility audit on anything you author and fix what it finds
+before handing the package over.** Accessibility findings do NOT fail
+validation, on purpose, so nothing stops you shipping a package full of them.
+Alt text is the part you cannot automate: write what the image actually shows
+and why it is on the page, and never let a filename stand in for a description.
+The audit reports PDFs but never rewrites them; if untagged PDFs are the
+problem, say so and suggest Acrobat, an accessible copy from the publisher, or
+replacing the PDF with an HTML page, rather than trying to patch the file.
 
 Build scripts you write for the instructor should live in **their** project
 directory, not in the plugin, and import the library the same way. Keep content

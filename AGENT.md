@@ -142,6 +142,10 @@ assumption and keep going.
 
 4. python3 -m canvas_imscc.validate_package "Course.imscc"
 
+4b. python3 -m canvas_imscc.accessibility "Course.imscc"
+   Accessibility findings never fail validation, so fix them here or they ship.
+   Alt text is the part you cannot automate: describe what the image shows.
+
 5. Upload to common-cartridge-viewer.netlify.app and look at it.
 
 6. Hand it to the instructor with the import instructions in README.md, and

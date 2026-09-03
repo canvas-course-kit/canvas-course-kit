@@ -13,6 +13,12 @@ Exit status is 0 when clean, 1 when anything failed. Every check here exists
 because the corresponding mistake shipped at least once. See docs/playbook.md
 for the stories.
 
+Accessibility is checked separately, by canvas_imscc.accessibility, and is
+summarised here as a note. It does NOT affect exit status unless you pass
+--a11y-strict, because a missing alt attribute is not a reason to block a
+build, and a validator that cries wolf gets switched off. Pass --a11y for the
+full report.
+
 The single most important check is the first one: every .xml in the package
 must actually parse. A package whose imsmanifest.xml is not well-formed
 imports "successfully" and renders every module item as inert, unclickable
@@ -66,7 +72,7 @@ def unescape_href(h):
     return _html.unescape(h)
 
 
-def check(path, personal_names=()):
+def check(path, personal_names=(), a11y=True):
     problems, notes = [], []
     with zipfile.ZipFile(path) as z:
         names = set(z.namelist())
@@ -318,6 +324,29 @@ def check(path, personal_names=()):
 
         notes.append("%d entries, %s bytes" % (len(names), format(
             sum(i.file_size for i in z.infolist()), ",d")))
+
+    # 11. Accessibility, summarised but never enforced, and deliberately kept
+    #     out of `problems`. These do not stop the package importing; they stop
+    #     some students using it. Mixing the two teaches people to ignore both.
+    #     HTML only here, because scanning PDFs means reading every byte of an
+    #     export that is mostly PDFs. `--a11y` does the full pass.
+    #
+    #     This function still returns a 2-tuple. Anything already calling
+    #     check() keeps working.
+    if a11y:
+        from .accessibility import audit_package
+        findings, a_counts = audit_package(path, skip_pdfs=True)
+        pages = a_counts["html"] + a_counts["xml_bodies"]
+        n_err = sum(1 for f in findings if f.severity == "error")
+        if findings:
+            notes.append(
+                "accessibility: %d error(s), %d warning(s) across %d html "
+                "page(s), pdfs not scanned — run `python3 -m "
+                "canvas_imscc.accessibility <package> --a11y` for detail"
+                % (n_err, len(findings) - n_err, pages))
+        else:
+            notes.append("accessibility: no automated problems in %d html "
+                         "page(s) (pdfs not scanned)" % pages)
     return problems, notes
 
 
@@ -326,17 +355,34 @@ def main():
     ap.add_argument("package")
     ap.add_argument("--names", help="file of names, one per line, that must NOT appear "
                                     "anywhere in the package (students, model bookings)")
+    ap.add_argument("--a11y", action="store_true",
+                    help="print the full accessibility report, including PDFs")
+    ap.add_argument("--a11y-strict", action="store_true",
+                    help="also fail (exit 1) on accessibility errors")
     a = ap.parse_args()
     people = []
     if a.names:
         people = [ln.strip() for ln in open(a.names) if ln.strip()]
-    problems, notes = check(a.package, people)
+    want_a11y = a.a11y or a.a11y_strict
+    # When the full report is coming, skip the summary so the audit runs once.
+    problems, notes = check(a.package, people, a11y=not want_a11y)
     for n in notes:
         print("  " + n)
+    findings = []
+    if want_a11y:
+        from .accessibility import audit_package, format_report
+        findings, a_counts = audit_package(a.package)
+        print("\n--- accessibility ---")
+        print(format_report(findings, a_counts))
+    failed = bool(problems)
     if problems:
         print("\nVALIDATION FAILED")
         for p in problems:
             print("  - " + p)
+    if a.a11y_strict and any(f.severity == "error" for f in findings):
+        print("\nACCESSIBILITY ERRORS (--a11y-strict)")
+        failed = True
+    if failed:
         return 1
     print("\nvalidation passed")
     return 0
