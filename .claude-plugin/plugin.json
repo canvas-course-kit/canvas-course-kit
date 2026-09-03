@@ -1,7 +1,7 @@
 {
   "name": "canvas-course-kit",
-  "version": "1.3.0",
-  "description": "Build and roll forward Canvas courses without API access by generating .imscc Course Export Packages, with validation that catches the silent import failures.",
+  "version": "1.4.0",
+  "description": "Build and roll forward Canvas courses without API access by generating .imscc Course Export Packages, with validation that catches the silent import failures and an accessibility audit of every page.",
   "author": {
     "name": "canvas-course-kit contributors",
     "url": "https://github.com/canvas-course-kit/canvas-course-kit"
@@ -9,5 +9,12 @@
   "homepage": "https://github.com/canvas-course-kit/canvas-course-kit",
   "repository": "https://github.com/canvas-course-kit/canvas-course-kit",
   "license": "MIT",
-  "keywords": ["canvas", "lms", "imscc", "common-cartridge", "teaching", "course-design"]
+  "keywords": [
+    "canvas",
+    "lms",
+    "imscc",
+    "common-cartridge",
+    "teaching",
+    "course-design"
+  ]
 }

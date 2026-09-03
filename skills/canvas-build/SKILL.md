@@ -65,6 +65,7 @@ Then, in order, and run all of them:
 ```bash
 python3 build_my_course.py     # calls b.validate() then b.zip_package()
 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.validate_package "Course.imscc"
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.accessibility "Course.imscc"
 ```
 
 `b.validate()` checks the model; `b.zip_package()` catches a mismatch between
@@ -72,8 +73,14 @@ the manifest and the actual zip entries rather than files that merely exist on
 disk. `validate_package` re-checks the finished artifact from the outside.
 
 If the package derives from a real course, re-run the validator with `--names`
-and every student name that must not appear. Canvas copies original filenames
-into `<img alt>`, so renaming a file does not remove a name from the package.
+and a file listing every student name that must not appear, one per line. Canvas
+copies original filenames into `<img alt>`, so renaming a file does not remove a
+name from the package.
+
+Fix everything the accessibility audit reports in content **you** wrote, before
+handing the package over. It does not fail the build, deliberately, so nothing
+stops a package shipping full of findings. Alt text is the part no tool can do
+for you: describe what the image shows and why it is on the page.
 
 ## 5. Hand off with both previews
 

@@ -48,7 +48,9 @@ PAGES = [
 Dates for in-class work will move; the due dates in Canvas are the ones that
 count.</p>
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
-<thead><tr><th>Week</th><th>Date</th><th>In class</th><th>Due</th></tr></thead>
+<caption>Weekly schedule: topics and due dates</caption>
+<thead><tr><th scope="col">Week</th><th scope="col">Date</th>
+<th scope="col">In class</th><th scope="col">Due</th></tr></thead>
 <tbody>
 <tr><td>1</td><td>Tue, Sep 1</td><td>Introduction and syllabus</td><td></td></tr>
 <tr><td>2</td><td>Tue, Sep 8</td><td>First topic</td><td>Exercise 1</td></tr>

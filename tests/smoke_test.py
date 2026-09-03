@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT))
 
 from canvas_imscc import rollforward as rf
 from canvas_imscc.validate_package import check
+from canvas_imscc import accessibility as a11y
 
 FAILURES = []
 
@@ -320,6 +321,120 @@ def main():
     problems, _ = check(built, ["Firstname"])
     ok("name in a file body is reported",
        any("Firstname" in p for p in problems), str(problems[:1]))
+
+    print("\n9. Accessibility checks fire, and do not fire on clean HTML")
+
+    # A page that is genuinely fine. If this produces findings the checker is
+    # crying wolf, which is worse than not shipping it: people switch off a
+    # validator that flags correct work.
+    clean = """
+    <h2>Week One</h2>
+    <p>Read the <a href="/ch1">Nicolaides chapter on gesture</a> first.</p>
+    <img src="g.jpg" alt="A gesture drawing in vine charcoal, arm extended">
+    <h3>Materials</h3>
+    <ul><li>Vine charcoal</li></ul>
+    <table><caption>Schedule</caption>
+      <tr><th scope="col">Week</th><th scope="col">Topic</th></tr>
+      <tr><td>1</td><td>Gesture</td></tr></table>
+    <p style="color:#333333">A readable note.</p>"""
+    ok("clean page produces no findings", not a11y.audit_html(clean, "clean"),
+       str([str(f) for f in a11y.audit_html(clean, "clean")][:3]))
+
+    # One deliberately broken page per check. Each entry is (code, html).
+    cases = [
+        ("img-no-alt", '<img src="p.jpg">'),
+        ("img-alt-filename",
+         '<img src="a.png" alt="Screen%20Shot%202024-01-02.png">'),
+        ("img-alt-vague", '<img src="a.png" alt="image">'),
+        ("heading-skipped-level", "<h2>A</h2><h4>B</h4>"),
+        ("heading-empty", "<h2></h2>"),
+        ("heading-h1-in-body", "<h1>Title</h1>"),
+        ("heading-faked-with-bold", "<p><strong>Supplies</strong></p>"),
+        ("link-text-meaningless", '<a href="/x">click here</a>'),
+        ("link-no-text", '<a href="/x"></a>'),
+        ("link-text-is-url", '<a href="/x">https://example.com/a/b</a>'),
+        ("table-no-headers", "<table><tr><td>1</td></tr><tr><td>2</td></tr></table>"),
+        ("table-th-no-scope", "<table><tr><th>A</th></tr><tr><td>1</td></tr></table>"),
+        ("iframe-no-title", '<iframe src="https://player.vimeo.com/1"></iframe>'),
+        ("media-captions-unverifiable",
+         '<iframe title="Lecture" src="https://youtube.com/embed/x"></iframe>'),
+        ("contrast-too-low", '<p style="color:#bbbbbb">grey on white</p>'),
+        ("list-faked-with-text", "<p>- vine charcoal</p>"),
+    ]
+    for code, html in cases:
+        codes = {f.code for f in a11y.audit_html(html, "case")}
+        ok("a11y check fires: %s" % code, code in codes, str(sorted(codes)))
+
+    # Contrast has to be right, not merely present. #767676 on white is the
+    # textbook 4.5:1 boundary, so it must pass while one shade lighter fails.
+    ok("contrast: #767676 on white passes",
+       not [f for f in a11y.audit_html('<p style="color:#767676">x</p>', "c")
+            if f.code == "contrast-too-low"])
+    ok("contrast: #777777 on white fails",
+       [f for f in a11y.audit_html('<p style="color:#777777">x</p>', "c")
+        if f.code == "contrast-too-low"])
+    # Large text has a lower bar, and applying the body threshold to headings
+    # would flag legitimate design.
+    ok("contrast: large text uses the 3:1 threshold",
+       not [f for f in a11y.audit_html(
+            '<h2 style="color:#949494">Big</h2>', "c")
+            if f.code == "contrast-too-low"])
+
+    # Parsing, not pattern-matching: an alt attribute containing ">" is valid
+    # HTML that a regex-based checker reports as a missing alt.
+    ok("a11y does not false-positive on > inside an attribute",
+       not a11y.audit_html('<img src="x.jpg" alt="width > height, in chalk">', "c"))
+
+    # A parser that dies must REPORT, not return []. An empty finding list
+    # reads exactly like a clean page, which is this repo's oldest failure
+    # mode: a check that passes while nothing was actually checked. Force the
+    # failure by breaking the parser rather than trusting the guard by eye.
+    _real_feed = a11y._Collector.feed
+    a11y._Collector.feed = lambda self, data: (_ for _ in ()).throw(
+        RuntimeError("boom"))
+    try:
+        codes = {f.code for f in a11y.audit_html("<p>anything</p>", "broken")}
+    finally:
+        a11y._Collector.feed = _real_feed
+    ok("a parser failure is reported, not swallowed",
+       "html-unparseable" in codes, str(sorted(codes)))
+
+    # Bodies escaped inside <text texttype="text/html"> are audited too.
+    # Discussions and announcements live there, and a checker that only opens
+    # .html gives every discussion in the course a free pass.
+    disc = ('<?xml version="1.0"?><topic><text texttype="text/html">'
+            '&lt;img src="x.jpg"&gt;&lt;a href="/y"&gt;click here&lt;/a&gt;'
+            '</text></topic>')
+    bodies = list(a11y._escaped_bodies(disc))
+    found = set()
+    for b in bodies:
+        found |= {f.code for f in a11y.audit_html(b, "disc")}
+    ok("html escaped inside a discussion .xml is audited",
+       {"img-no-alt", "link-text-meaningless"} <= found, str(sorted(found)))
+
+    # PDFs are reported, never rewritten.
+    minimal_pdf = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<<>>"
+    codes = {f.code for f in a11y.audit_pdf(minimal_pdf, "x.pdf")}
+    ok("untagged pdf is reported", "pdf-untagged" in codes, str(sorted(codes)))
+    tagged = b"%PDF-1.4\n1 0 obj<</Type/Catalog/StructTreeRoot 2 0 R/Lang(en-US)>>"
+    codes = {f.code for f in a11y.audit_pdf(tagged, "y.pdf")}
+    ok("tagged pdf with a language is not reported as untagged",
+       "pdf-untagged" not in codes and "pdf-no-language" not in codes,
+       str(sorted(codes)))
+
+    # The shipped example must itself be clean, or the kit is teaching the
+    # markup it flags. This is the check that keeps it that way.
+    ex_findings, _ = a11y.audit_package(built)
+    ok("the example course has no accessibility findings", not ex_findings,
+       str([str(f) for f in ex_findings][:3]))
+
+    # The package-level summary must not change exit status on its own.
+    problems, notes = check(built)
+    ok("accessibility appears in the validator's notes",
+       any(n.startswith("accessibility:") for n in notes),
+       str([n for n in notes if n.startswith("accessibility")]))
+    ok("accessibility findings are NOT structural problems",
+       not any("accessibility" in p for p in problems))
 
     print()
     if FAILURES:
