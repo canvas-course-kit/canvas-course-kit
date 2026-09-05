@@ -66,6 +66,7 @@ Then, in order, and run all of them:
 python3 build_my_course.py     # calls b.validate() then b.zip_package()
 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.validate_package "Course.imscc"
 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.accessibility "Course.imscc"
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.privacy "Course.imscc"
 ```
 
 `b.validate()` checks the model; `b.zip_package()` catches a mismatch between

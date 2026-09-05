@@ -119,7 +119,16 @@ PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.validate_package "Cou
 
 # Accessibility, which is scored separately by Ally/UDOIT once the course is live
 PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.accessibility "Course.imscc"
+
+# Possible student data. Report only; never blocks, never modifies
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python3 -m canvas_imscc.privacy "Course.imscc"
 ```
+
+**Run the privacy sweep on anything derived from a real course, and hand the
+"review" lines to the instructor rather than acting on them yourself.** It is a
+triage aid, not a compliance check, and it cannot tell a student's name from an
+artist's. Never delete or edit content because it was flagged; say what was
+flagged and where, and let the instructor decide.
 
 **Run the accessibility audit on anything you author and fix what it finds
 before handing the package over.** Accessibility findings do NOT fail
