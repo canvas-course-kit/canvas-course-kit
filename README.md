@@ -110,7 +110,9 @@ Requires Python 3.8+. No dependencies.
 If you cannot get an empty shell, see the "targeted package" pattern in
 [`docs/playbook.md`](docs/playbook.md): a package that declares no modules and
 no pages will add resources to a live course without touching anything already
-there.
+there. Note its limit, which is documented there: **a targeted package can add
+to a live course but cannot update it.** Reusing an existing page's identifier
+does not make Canvas overwrite that page, it imports a duplicate.
 
 ## Two previews, and why you need both
 

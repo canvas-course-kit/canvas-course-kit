@@ -15,6 +15,12 @@ REST API instead. It is far simpler than any of this.
 
 ## Step 1: decide which of two jobs this is
 
+**A targeted package can add to a live course but cannot update it.** Reusing an
+existing page's identifier does not make Canvas overwrite that page; it imports
+a duplicate and leaves the module item pointing at the original. If the
+instructor wants one or two existing pages changed, tell them to edit in Canvas
+rather than building anything. See `docs/playbook.md`.
+
 **Job B: a previous term's version of this course already exists in Canvas.**
 Ask the instructor to export it (Settings > Export Course Content > Course, then
 download the `.imscc`) and **mutate that export** rather than rebuilding. Read
@@ -239,6 +245,7 @@ wrong on every day before that class happens.
 |---|---|
 | Assignments imported as Pages | Rule 2, the `course_settings` resource declaration. Confirm it first: real Assignments leave `<hash>/assignment_settings.xml` in an export, Pages do not |
 | An export says assignments or rubrics are missing | Check the export's date before believing it. It may predate the import that added them |
+| A page imported as a duplicate instead of updating | Expected. Reusing the live page's identifier does NOT make Canvas overwrite it; a targeted package can add but not update. Edit in Canvas, or delete the old page by hand |
 | `module_meta.xml` shows zero Assignments | They exist but are in no module. That file records module membership only; it is not a sign they became Pages |
 | Module items are unclickable text | Rule 1, malformed manifest |
 | A file link is broken in the live course | `$IMS-CC-FILEBASE$` links are relative to `web_resources/`, percent-encoded then XML-escaped, and Canvas leaves commas literal unlike `urllib.parse.quote`. Use `rollforward.html_href()` |

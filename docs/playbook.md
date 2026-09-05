@@ -275,6 +275,29 @@ When you only need to add or fix part of a live course, ship only that part:
 - Canvas never deletes on import. Anything the targeted package supersedes has
   to be deleted by hand afterwards.
 
+**A targeted package can ADD, but it cannot UPDATE.** This is the limit of the
+pattern and it is worth knowing before you build one.
+
+Reusing the identifier that the live course already has for a page does **not**
+make Canvas recognise the page and overwrite it. It imports a second page
+alongside the first. Tested directly: a package shipped one page carrying the
+exact `<meta name="identifier">` of the page it was meant to replace, and Canvas
+created a duplicate, leaving the module item still pointing at the original. The
+fix was to delete the old page by hand and re-add the new one to the module,
+which is precisely the work the identifier was supposed to avoid.
+
+So when part of a live course needs *changing* rather than *adding*:
+
+- One or two pages: edit them in Canvas. Faster than any package.
+- Many pages: ship them as new pages and delete the old ones by hand, and
+  expect to fix module items yourself. Budget for that rather than being
+  surprised by it.
+- A whole course: get an empty shell and reimport properly.
+
+Not tested for assignments, files or rubrics. Do not assume they behave
+differently just because pages did this; assume duplication until you have
+watched one behave otherwise.
+
 ---
 
 ## Gotchas
