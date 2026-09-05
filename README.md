@@ -147,10 +147,27 @@ touches under 5% of a package. See
 
 3. **A package that imports without errors is not a package that imported
    correctly.** After your first import of a new package shape, export the
-   course back out of Canvas and diff it against what you built. Compare the
-   `<content_type>` counts in `course_settings/module_meta.xml` first: that is
-   where "11 Assignments" showing up as "11 WikiPages" becomes visible in a
-   single line.
+   course back out of Canvas and diff it against what you built.
+
+   **Check the export's date before you read anything into it.** Exports pile
+   up in a folder and they all look alike. `validate_package` prints the
+   newest entry timestamp for exactly this reason. A course has been declared
+   broken on the evidence of an export that simply predated the import that
+   fixed it.
+
+   **The test for "did my assignments arrive as assignments" is whether
+   `<hash>/assignment_settings.xml` files exist**, each with a
+   `<points_possible>`. If Canvas turned them into Pages, those files are not
+   in the export at all. Do **not** use the `<content_type>` counts in
+   `course_settings/module_meta.xml` for this: that file records module
+   *membership* and nothing else, so an assignment that exists, is gradeable,
+   and simply is not linked from any module contributes no `Assignment` line.
+   Reading that zero as "they all imported as Pages" is a mistake worth naming,
+   because it looks like exactly the failure in rule 1 and is not.
+   `validate_package` now reports both numbers so the difference is visible.
+
+   The `<content_type>` counts are still the fastest way to see what is in your
+   **modules**, which is what they describe.
 
 ## Accessibility
 

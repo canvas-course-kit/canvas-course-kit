@@ -154,10 +154,20 @@ assumption and keep going.
 
 7. After the FIRST import of a new package shape, ask the instructor to
    export the course back out, and diff it against what you built. Nothing in
-   steps 3-5 tells you what Canvas actually DID with the package. Compare the
-   <content_type> counts in course_settings/module_meta.xml first: that is
-   where "11 Assignments" showing up as "11 WikiPages" becomes visible in a
-   single line.
+   steps 3-5 tells you what Canvas actually DID with the package.
+
+   CHECK THE EXPORT'S DATE BEFORE READING ANYTHING INTO IT. Instructors keep
+   several exports of one course in one folder and they look alike.
+   validate_package prints the newest entry timestamp. Do not diagnose a live
+   course from a stale export; ask for a fresh one.
+
+   To ask whether assignments arrived as assignments, look for
+   <hash>/assignment_settings.xml files carrying <points_possible>. If Canvas
+   made them Pages, those files are not in the export at all. Do NOT read it
+   off the <content_type> counts in module_meta.xml: that file records module
+   MEMBERSHIP only, so an assignment that exists and is gradeable but is in no
+   module shows as zero there, which looks exactly like the rule-2 failure and
+   is not it.
 ```
 
 ---

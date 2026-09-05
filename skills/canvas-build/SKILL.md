@@ -109,7 +109,12 @@ non-empty course has to be undone by hand, one checkbox at a time.
 
 Ask the instructor to export the course back out of Canvas and diff it against
 what you built. Nothing in steps 3 through 5 tells you what Canvas actually did.
-Compare the `<content_type>` counts in `course_settings/module_meta.xml` first.
+
+**Check the export's date before reading anything into it** — `validate_package`
+prints it — and to ask whether assignments arrived as assignments, look for
+`<hash>/assignment_settings.xml` carrying a `<points_possible>`, not for
+`Assignment` in the `<content_type>` counts. `module_meta.xml` records module
+membership only, so an assignment in no module reads as zero there.
 
 Report honestly: if a check was skipped or a step could not be run, say so
 plainly rather than implying the package is verified.

@@ -301,7 +301,27 @@ def check(path, personal_names=(), a11y=True):
             if g and groups and g.group(1) not in groups:
                 problems.append("assignment %s references an undeclared group" % nm)
         if n_assign:
-            notes.append("%d assignment(s)" % n_assign)
+            # Say how many are ALSO module items. module_meta.xml records
+            # module membership and nothing else, so an assignment that is not
+            # in any module contributes no <content_type>Assignment</> line
+            # while being a perfectly healthy assignment with a gradebook
+            # column. Reading a zero there as "they all imported as Pages" is a
+            # mistake this note exists to prevent; it has been made.
+            in_modules = 0
+            if "course_settings/module_meta.xml" in names:
+                meta_txt = z.read("course_settings/module_meta.xml").decode(
+                    "utf8", "replace")
+                in_modules = meta_txt.count(
+                    "<content_type>Assignment</content_type>")
+            if in_modules == n_assign:
+                notes.append("%d assignment(s), all placed in a module"
+                             % n_assign)
+            else:
+                notes.append(
+                    "%d assignment(s), %d placed in a module. The other %d "
+                    "exist and are gradeable, they are just not linked from "
+                    "any module -- that is normal, NOT evidence they imported "
+                    "as Pages" % (n_assign, in_modules, n_assign - in_modules))
 
         # 9. Personal data. Sweep zip ENTRY NAMES as well as file contents:
         #    a student's name can survive inside an <img alt> long after the
@@ -321,6 +341,19 @@ def check(path, personal_names=(), a11y=True):
         for d in sorted(n for n in names if n.endswith("/")):
             if not any(n != d and n.startswith(d) for n in names):
                 problems.append("empty directory entry left in the zip: %s" % d)
+
+        # WHEN this package was made, which is not a nicety. Exports pile up
+        # in a folder and they all look alike; reasoning about an old one
+        # produces confident, wrong conclusions about the live course. A real
+        # case: a course was declared broken (assignments missing, rubrics
+        # gone) from an export that predated the import that added them.
+        # Canvas puts no date inside the package -- canvas_export.txt is a
+        # joke file, literally -- so the zip entry timestamps are the record.
+        stamps = [i.date_time for i in z.infolist() if i.date_time[0] > 1980]
+        if stamps:
+            notes.append("package built %04d-%02d-%02d %02d:%02d "
+                         "(newest entry timestamp -- check this is the export "
+                         "you think it is)" % max(stamps)[:5])
 
         notes.append("%d entries, %s bytes" % (len(names), format(
             sum(i.file_size for i in z.infolist()), ",d")))
