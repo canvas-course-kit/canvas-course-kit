@@ -193,9 +193,20 @@ it before importing.
 
 After the **first** import of a new package shape, ask the instructor to export
 the course back out and diff it against what you built. Nothing before this
-point tells you what Canvas actually *did*. Compare the `<content_type>` counts
-in `course_settings/module_meta.xml` first: that is where "11 Assignments"
-arriving as "11 WikiPages" shows up in one line.
+point tells you what Canvas actually *did*.
+
+**Check the export's date first.** Instructors keep several exports of one
+course in one folder, and they look alike. `validate_package` prints the newest
+entry timestamp. Diagnosing a live course from a stale export produces
+confident, wrong conclusions; ask for a fresh export instead.
+
+**To ask whether assignments arrived as assignments, look for
+`<hash>/assignment_settings.xml` carrying a `<points_possible>`.** If Canvas
+turned them into Pages, those files are absent entirely. Do **not** read this
+off the `<content_type>` counts in `course_settings/module_meta.xml`: that file
+records module *membership* only, so an assignment that exists and is gradeable
+but sits in no module contributes zero `Assignment` lines. That zero looks
+exactly like the rule 2 failure and is not it.
 
 ## Writing style for course content
 
@@ -217,7 +228,9 @@ wrong on every day before that class happens.
 
 | Symptom | Cause |
 |---|---|
-| Assignments imported as Pages | Rule 2, the `course_settings` resource declaration |
+| Assignments imported as Pages | Rule 2, the `course_settings` resource declaration. Confirm it first: real Assignments leave `<hash>/assignment_settings.xml` in an export, Pages do not |
+| An export says assignments or rubrics are missing | Check the export's date before believing it. It may predate the import that added them |
+| `module_meta.xml` shows zero Assignments | They exist but are in no module. That file records module membership only; it is not a sign they became Pages |
 | Module items are unclickable text | Rule 1, malformed manifest |
 | A file link is broken in the live course | `$IMS-CC-FILEBASE$` links are relative to `web_resources/`, percent-encoded then XML-escaped, and Canvas leaves commas literal unlike `urllib.parse.quote`. Use `rollforward.html_href()` |
 | Something you changed did not change | You matched one spelling of a path. There are at least three. Use `rollforward.path_spellings()` |

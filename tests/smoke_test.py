@@ -436,6 +436,41 @@ def main():
     ok("accessibility findings are NOT structural problems",
        not any("accessibility" in p for p in problems))
 
+    print("\n10. Reading an export: the two things that caused a false diagnosis")
+
+    # (a) The package's date must be reported. Several exports of one course
+    #     live in one folder and look alike, and a course has been declared
+    #     broken on the evidence of one that simply predated the fix.
+    _, notes = check(built)
+    ok("validate_package reports when the package was built",
+       any(n.startswith("package built ") for n in notes),
+       str([n for n in notes if n.startswith("package built")]))
+
+    # (b) An assignment that exists but sits in NO module contributes zero
+    #     <content_type>Assignment</> lines to module_meta.xml, because that
+    #     file records module membership and nothing else. Reading that zero as
+    #     "they all imported as Pages" is wrong, and looks exactly like the
+    #     rule 2 failure. Strip the Assignment items out of module_meta and the
+    #     validator must still say the assignments are there and fine.
+    meta = z_read(built, "course_settings/module_meta.xml").decode()
+    item_re = (r'\s*<item identifier="[^"]+">'
+               r'(?:(?!</item>).)*?'
+               r'<content_type>Assignment</content_type>.*?</item>')
+    stripped = re.sub(item_re, '', meta, flags=re.S)
+    ok("test fixture actually removed the Assignment module items",
+       stripped.count("<content_type>Assignment</content_type>") == 0
+       and stripped != meta)
+    unmoduled = tmp / "assignments-not-in-modules.imscc"
+    rf.stream_rewrite(built, unmoduled,
+                      replace={"course_settings/module_meta.xml":
+                               stripped.encode()})
+    problems, notes = check(unmoduled)
+    ok("assignments outside every module are NOT reported as a problem",
+       not problems, str(problems[:2]))
+    ok("the note says they exist and are gradeable",
+       any("not linked from" in n and "NOT evidence" in n for n in notes),
+       str([n for n in notes if "assignment(s)" in n]))
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

@@ -179,9 +179,19 @@ checked, only presence.
    deletes on import.
 
 7. **Round-trip once.** After the first import of a new package shape, export
-   the course back out and diff. Compare the `<content_type>` counts in
-   `module_meta.xml` first: that is where "11 Assignments" showing as "11
-   WikiPages" becomes visible in one line.
+   the course back out and diff.
+
+   **Check the export's date first.** Exports accumulate and look alike;
+   `validate_package` prints the newest entry timestamp so you can tell whether
+   you are reading the course's current state or last month's.
+
+   **To ask whether assignments arrived as assignments, look for
+   `<hash>/assignment_settings.xml` with a `<points_possible>`.** If Canvas
+   made them Pages, those files do not exist in the export. Do NOT read this
+   off the `<content_type>` counts in `module_meta.xml`: that file records
+   module membership only, so an assignment that exists and is gradeable but
+   sits in no module shows up as zero there. That zero looks exactly like the
+   rule-2 failure and is not it.
 
    ```
    unzip -q -o fresh-export.imscc -x 'web_resources/*' -d canvas/
