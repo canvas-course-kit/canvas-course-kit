@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 from canvas_imscc import rollforward as rf
 from canvas_imscc.validate_package import check
 from canvas_imscc import accessibility as a11y
+from canvas_imscc import privacy as priv
 
 FAILURES = []
 
@@ -470,6 +471,55 @@ def main():
     ok("the note says they exist and are gradeable",
        any("not linked from" in n and "NOT evidence" in n for n in notes),
        str([n for n in notes if "assignment(s)" in n]))
+
+    print("\n11. The student-data sweep flags, and does not block")
+
+    ok("a clean package flags nothing", not priv.audit_privacy(built)[0],
+       str([str(f) for f in priv.audit_privacy(built)[0]][:2]))
+
+    # Each detector, one at a time. The capitalisation in the filename and
+    # upload patterns is load-bearing: compiling either case-insensitively
+    # made "Antonio Lopez Garcia, Sick, charcoal.jpg" read as a student named
+    # Sick Charcoal, which is how that bug was found.
+    import os as _os
+    checks = [
+        ("BAD_PATH fires on a submissions folder",
+         priv.BAD_PATH.search("submissions/g1/drawing.pdf")),
+        ("BAD_PATH fires on a gradebook csv",
+         priv.BAD_PATH.search("web_resources/Grades-ART226.csv")),
+        ("BAD_PATH ignores an ordinary article",
+         not priv.BAD_PATH.search("web_resources/Articles/A_Case_for_Drawing.pdf")),
+        ("BAD_PATH ignores a page about student resources",
+         not priv.BAD_PATH.search("wiki_content/ut-student-resources.html")),
+        ("submission filename convention fires",
+         priv.STUDENT_FILE.search("ART226_Jane_Doe.pdf")),
+        ("'Lastname, Firstname.jpg' fires",
+         priv.STUDENT_FILE.search("Doe, Jane.jpg")),
+        ("an artwork credit does NOT fire",
+         not priv.STUDENT_FILE.search("Antonio Lopez Garcia, Sick, charcoal.jpg")),
+        ("a reading filename does NOT fire",
+         not priv.STUDENT_FILE.search("A_Case_for_Drawing.pdf")),
+        ("user records fire",
+         priv.USER_ELEMENT.search("<user_id>442</user_id>")),
+        ("assignment settings do NOT fire",
+         not priv.USER_ELEMENT.search("<grader_count>3</grader_count>")),
+        ("submission_types does NOT fire",
+         not priv.USER_ELEMENT.search("<submission_types>online</submission_types>")),
+        ("a Canvas Student app upload name fires",
+         priv.CANVAS_UPLOAD.search("Nicole Rodriguez - Dec 15, 2021 1142 AM - x.jpg")),
+        ("an artist name alone does NOT fire",
+         not priv.CANVAS_UPLOAD.search("Diane Victor, Shadow Boxer, charcoal")),
+        ("an email address is found",
+         priv.EMAIL.findall("write to someone@example.edu today")),
+    ]
+    for label, cond in checks:
+        ok("privacy: " + label, bool(cond))
+
+    # And the whole point: it must never change an exit status.
+    ok("privacy findings are not structural problems",
+       not any("student data" in p for p in check(built)[0]))
+    ok("the privacy CLI exits 0 even when it flags things",
+       priv.main([str(built)]) == 0)
 
     print()
     if FAILURES:

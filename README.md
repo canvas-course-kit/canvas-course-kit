@@ -4,10 +4,30 @@ Build a Canvas course — modules, pages, files, real gradebook-integrated
 assignments, rubrics, due dates — **without API access**, by hand-building the
 same `.imscc` export package Canvas itself produces, and importing it.
 
-It also **checks the course's accessibility before you import it**, rather than
-after Ally or UDOIT scores it in front of your students: alt text, heading
-order, table headers, link text, contrast, and a read-only report on untagged
-PDFs. See [Accessibility](#accessibility).
+## What it does
+
+- **Builds a real Canvas course from a folder of your own material** — modules,
+  pages, files, assignments with points and due dates, weighted gradebook
+  groups, rubrics — and packages it as a file you import yourself, no admin
+  involved.
+- **Rolls a course forward** from last term's export, usually touching under 5%
+  of the package and carrying everything else through untouched.
+- **Catches the import failures that are silent**, the ones where Canvas reports
+  success and quietly turns every assignment into a page with no gradebook
+  column. Each check exists because that mistake shipped at least once.
+- **Audits accessibility before students see it**, rather than after Ally or
+  UDOIT scores it: alt text, heading order, table headers, link text, contrast,
+  and a read-only report on untagged PDFs.
+  See [Accessibility](#accessibility).
+- **Flags anything that looks like student data** before you hand a package to
+  a colleague. See [What about FERPA?](#what-about-ferpa)
+- **Puts your course in version control**, as text you can diff, instead of only
+  inside Canvas.
+
+Nothing here needs a Canvas API token, an admin, or a paid tool. Python 3.8+,
+no dependencies.
+
+---
 
 Then let an AI agent do the work. **If you use Claude Code**, install this as a
 plugin and you get a `/canvas-build` command that walks you through it:
@@ -262,10 +282,41 @@ survives in three places that are easy to miss:
 
 `validate_package --names names.txt` sweeps all three, entry names as well as
 file contents. **Its limit is that you have to know the names already.** It
-finds names you give it; it does not discover them. Rolling a course forward
-from three years ago, you may not remember whose drawing is in the files. If
-that matters to you, read `web_resources/` by hand before shipping the package
-anywhere.
+finds names you give it; it does not discover them.
+
+### The sweep that does not need a list
+
+```bash
+python3 -m canvas_imscc.privacy "My Course.imscc"
+```
+
+This flags the places student identity actually hides, without being told any
+names. It **never modifies the package and never fails a build.** It always
+exits 0. A privacy warning is a prompt to look, and a checker that blocks over a
+false positive is one people switch off.
+
+Findings come in two levels, and the split is doing real work:
+
+- **review** — something that should not be in a Course export at all: a
+  `submissions/` path, a gradebook or roster spreadsheet, XML describing people
+  rather than settings, or alt text carrying a name plus an upload timestamp,
+  which is how Canvas names a file uploaded from the Student app.
+- **look** — a real pattern with real false positives. Your own email address
+  will match. You will recognise it in a second, which is the point.
+
+It deliberately does **not** try to guess whether a string is a person's name.
+Every art history page is full of them, and a report that cries wolf is one
+nobody reads. It looks for *shapes* instead: submission naming conventions,
+Canvas's own upload filenames, paths that do not belong.
+
+That narrowness is the reason it works. Run against a real course that had
+already been taught, it produced one **review** line out of twenty-three
+findings, and that one line was a student's name sitting in an `<img alt>`
+attribute, four years after the file itself had been renamed.
+
+**None of this is a compliance check.** A clean report means the automated
+patterns found nothing, not that the package is safe to distribute. If you are
+sharing a package outside your institution, read `web_resources/` yourself.
 
 Being untagged is separate from being private. The accessibility audit's PDF
 report says nothing about whether a PDF contains student work.
