@@ -16,10 +16,14 @@ REST API instead. It is far simpler than any of this.
 ## Step 1: decide which of two jobs this is
 
 **A targeted package can add to a live course but cannot update it.** Reusing an
-existing page's identifier does not make Canvas overwrite that page; it imports
-a duplicate and leaves the module item pointing at the original. If the
-instructor wants one or two existing pages changed, tell them to edit in Canvas
-rather than building anything. See `docs/playbook.md`.
+existing item's identifier does not make Canvas overwrite it. Tested on a live
+course: a page imported as a duplicate with the module item left on the
+original, and an assignment imported as a duplicate *and* landed in a new
+"Imported Assignments" group despite naming an existing group. **If the
+instructor wants one or two existing items changed, tell them to edit in Canvas
+rather than building anything** — that is genuinely the faster answer, and
+saying so is more useful than shipping a package that creates cleanup work. See
+`docs/playbook.md`.
 
 **Job B: a previous term's version of this course already exists in Canvas.**
 Ask the instructor to export it (Settings > Export Course Content > Course, then
@@ -245,7 +249,8 @@ wrong on every day before that class happens.
 |---|---|
 | Assignments imported as Pages | Rule 2, the `course_settings` resource declaration. Confirm it first: real Assignments leave `<hash>/assignment_settings.xml` in an export, Pages do not |
 | An export says assignments or rubrics are missing | Check the export's date before believing it. It may predate the import that added them |
-| A page imported as a duplicate instead of updating | Expected. Reusing the live page's identifier does NOT make Canvas overwrite it; a targeted package can add but not update. Edit in Canvas, or delete the old page by hand |
+| A page or assignment imported as a duplicate instead of updating | Expected. Reusing the live identifier does NOT make Canvas overwrite anything; a targeted package can add but not update. Edit in Canvas, or delete the old one by hand |
+| An imported assignment landed in a new "Imported Assignments" group | Expected. Canvas ignores `assignment_group_identifierref` pointing at a group it already has. Move it by hand; do not ship the groups to fix it, they duplicate and reweight the gradebook |
 | `module_meta.xml` shows zero Assignments | They exist but are in no module. That file records module membership only; it is not a sign they became Pages |
 | Module items are unclickable text | Rule 1, malformed manifest |
 | A file link is broken in the live course | `$IMS-CC-FILEBASE$` links are relative to `web_resources/`, percent-encoded then XML-escaped, and Canvas leaves commas literal unlike `urllib.parse.quote`. Use `rollforward.html_href()` |

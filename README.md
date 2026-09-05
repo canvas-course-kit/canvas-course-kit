@@ -111,8 +111,10 @@ If you cannot get an empty shell, see the "targeted package" pattern in
 [`docs/playbook.md`](docs/playbook.md): a package that declares no modules and
 no pages will add resources to a live course without touching anything already
 there. Note its limit, which is documented there: **a targeted package can add
-to a live course but cannot update it.** Reusing an existing page's identifier
-does not make Canvas overwrite that page, it imports a duplicate.
+to a live course but cannot update it.** Reusing an existing item's identifier
+does not make Canvas overwrite it — a page and an assignment were both tested,
+and both imported as duplicates. To change one or two existing items, edit them
+in Canvas.
 
 ## Two previews, and why you need both
 

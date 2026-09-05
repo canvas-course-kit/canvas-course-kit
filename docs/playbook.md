@@ -271,13 +271,14 @@ When you only need to add or fix part of a live course, ship only that part:
   even when they already exist in the destination course: the link would resolve
   either way, but a package that cannot be validated on its own is a package
   nobody can check.
-- If the assignments point at assignment groups that already exist in the
+- If the assignments belong in assignment groups that already exist in the
   destination course, construct the builder with
-  `external_assignment_groups=True` and ship no `assignment_groups.xml`.
-  Shipping the groups risks duplicating every one of them and silently
-  reweighting the gradebook, which is far worse than an assignment landing in
-  the wrong group. Without the flag, `validate()` fails an assignment that has
-  no declared group, and it should: in a normal build that is a bug.
+  `external_assignment_groups=True` and ship no `assignment_groups.xml`. Expect
+  to move the assignments into the right group by hand: Canvas ignores the
+  identifier and creates an "Imported Assignments" group. Shipping the groups
+  instead is worse, because they duplicate and that reweights the gradebook.
+  Without the flag, `validate()` fails an assignment that has no declared group,
+  and it should: in a normal build that is a bug.
 - Build it from the **same source** as the full package, so the two cannot
   drift. A proxy object that wraps the builder and swallows `new_module` /
   `add_item` / `add_page_resource` lets the same content function run
@@ -285,28 +286,38 @@ When you only need to add or fix part of a live course, ship only that part:
 - Canvas never deletes on import. Anything the targeted package supersedes has
   to be deleted by hand afterwards.
 
-**A targeted package can ADD, but it cannot UPDATE.** This is the limit of the
-pattern and it is worth knowing before you build one.
+**A targeted package can ADD, but it cannot UPDATE.** This is the hard limit of
+the pattern. Know it before you build one.
 
-Reusing the identifier that the live course already has for a page does **not**
-make Canvas recognise the page and overwrite it. It imports a second page
-alongside the first. Tested directly: a package shipped one page carrying the
-exact `<meta name="identifier">` of the page it was meant to replace, and Canvas
-created a duplicate, leaving the module item still pointing at the original. The
-fix was to delete the old page by hand and re-add the new one to the module,
-which is precisely the work the identifier was supposed to avoid.
+Reusing the identifier the live course already has for something does **not**
+make Canvas recognise it and overwrite it. It imports a second copy. Both tested
+directly against a live course on 2026-09-05:
 
-So when part of a live course needs *changing* rather than *adding*:
+| Shipped with the live identifier | What Canvas did |
+|---|---|
+| A wiki page | Imported a **duplicate**. The module item stayed on the original. |
+| An assignment | Imported a **duplicate**, and put it in a **new group called "Imported Assignments"**, ignoring the `assignment_group_identifierref` naming a group that already existed. |
 
-- One or two pages: edit them in Canvas. Faster than any package.
-- Many pages: ship them as new pages and delete the old ones by hand, and
-  expect to fix module items yourself. Budget for that rather than being
-  surprised by it.
-- A whole course: get an empty shell and reimport properly.
+The assignment case is worth dwelling on, because it means a targeted package
+cannot put an assignment into an existing grading category *at all*. Shipping
+`assignment_groups.xml` to fix that is worse, not better: groups duplicate like
+everything else, and a duplicated weighted group silently reweights a live
+gradebook. So ship no groups, use `external_assignment_groups=True` so
+`validate()` stops objecting, and move the assignment by hand afterwards.
 
-Not tested for assignments, files or rubrics. Do not assume they behave
-differently just because pages did this; assume duplication until you have
-watched one behave otherwise.
+When part of a live course needs *changing* rather than *adding*:
+
+- **One or two items: edit them in Canvas.** Faster than any package, every
+  time. This is the answer far more often than it feels like it should be.
+- **Many items:** ship them as new, delete the old ones by hand, and expect to
+  fix module items and assignment groups yourself. Budget for that rather than
+  being surprised by it.
+- **A whole course:** get an empty shell and reimport properly.
+- **If you have API access, use it.** Updating existing objects in place is
+  precisely what the REST API does and what this format cannot.
+
+Rubrics and files were not tested separately. Assume they duplicate too; that is
+now the pattern twice over.
 
 ---
 

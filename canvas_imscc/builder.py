@@ -80,15 +80,21 @@ class ImsccBuilder:
     def __init__(self, course_title, build_dir, canvas_domain="canvas.instructure.com",
                  root_account_name="Your Institution", extra_head_html="",
                  external_assignment_groups=False):
-        # external_assignment_groups: this package's assignments point at
-        # assignment groups that already exist in the DESTINATION course, by
-        # identifier, and the package deliberately ships no
-        # assignment_groups.xml. Only meaningful for a targeted package added to
-        # a live course (see docs/playbook.md). Shipping the groups there risks
-        # duplicating every one of them and silently reweighting the gradebook,
-        # which is a far worse outcome than an assignment landing in the wrong
-        # group. Leave this False for a normal build, where an assignment with
-        # no declared group IS a bug.
+        # external_assignment_groups: this package's assignments name assignment
+        # groups that already exist in the DESTINATION course, by identifier,
+        # and the package deliberately ships no assignment_groups.xml. Only
+        # meaningful for a targeted package added to a live course.
+        #
+        # Canvas does NOT honour that identifier. Tested against a live course
+        # on 2026-09-05: the assignment landed in a new group called "Imported
+        # Assignments" and had to be moved by hand. Setting this flag does not
+        # avoid that; it only stops validate() failing a package that is
+        # correctly built for a job Canvas cannot do cleanly. Shipping the
+        # groups instead is worse, because they duplicate too and that silently
+        # reweights a live gradebook. See docs/playbook.md.
+        #
+        # Leave this False for a normal build, where an assignment with no
+        # declared group IS a bug.
         self.external_assignment_groups = external_assignment_groups
         self.course_title = course_title
         self.canvas_domain = canvas_domain
@@ -691,10 +697,11 @@ class ImsccBuilder:
         if n_assignments and not groups and self.external_assignment_groups:
             lines.append(
                 f"assignment groups: none declared, by request. "
-                f"{n_assignments} assignment(s) reference groups expected to "
-                f"exist already in the destination course. If an identifier is "
-                f"wrong the assignment lands in a default group, so check "
-                f"where it landed after importing")
+                f"{n_assignments} assignment(s) name a group by identifier and "
+                f"CANVAS WILL IGNORE IT: tested 2026-09-05, every one lands in "
+                f"a new group called 'Imported Assignments' and has to be moved "
+                f"by hand. This is still the better option -- shipping the "
+                f"groups risks duplicating them and reweighting the gradebook")
         elif n_assignments and not groups:
             ok = False
             lines.append(f"ASSIGNMENT GROUPS: none declared but {n_assignments} assignment(s) exist")
