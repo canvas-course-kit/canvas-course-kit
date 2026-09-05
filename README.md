@@ -140,6 +140,7 @@ point 3 of "The three things most likely to bite you" below.
 | `canvas_imscc/rollforward.py` | Helpers for mutating an existing export: path encoding, due dates, rubric criteria, finding and removing things, streaming rewrites, diffing. |
 | `canvas_imscc/validate_package.py` | Standalone checker. Runs against any `.imscc`, however it was made. |
 | `canvas_imscc/accessibility.py` | Accessibility audit of every HTML body in a package, plus a read-only report on PDFs. See "Accessibility" below. |
+| `canvas_imscc/privacy.py` | Flags possible student data. Report only: never modifies, never blocks. See "What about FERPA?" below. |
 | `examples/` | A complete, runnable course. Copy it and edit. |
 | `tests/smoke_test.py` | Run this first in a new environment. Builds, validates, mutates and deliberately breaks a package to prove the checks fire. |
 
