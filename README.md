@@ -4,6 +4,11 @@ Build a Canvas course — modules, pages, files, real gradebook-integrated
 assignments, rubrics, due dates — **without API access**, by hand-building the
 same `.imscc` export package Canvas itself produces, and importing it.
 
+It also **checks the course's accessibility before you import it**, rather than
+after Ally or UDOIT scores it in front of your students: alt text, heading
+order, table headers, link text, contrast, and a read-only report on untagged
+PDFs. See [Accessibility](#accessibility).
+
 Then let an AI agent do the work. **If you use Claude Code**, install this as a
 plugin and you get a `/canvas-build` command that walks you through it:
 
@@ -229,6 +234,41 @@ An automated checker reaches roughly half of WCAG. It cannot judge whether alt
 text is *accurate*, whether captions are correct rather than merely present,
 whether colour is the only thing carrying a distinction, or whether the reading
 order makes sense. **A clean report is a floor, not a pass.**
+
+## What about FERPA?
+
+**This kit does not perform a FERPA compliance check, and nothing automated
+can.** Compliance is a legal determination about your institution and your
+records, not something a script decides. What follows is the factual shape of
+the problem so you can make that call yourself.
+
+**A Canvas *Course* export contains no student records.** Checked against a real
+export of a course that had actually run: there are no submissions, no
+gradebook, no enrollments, no user accounts, no discussion posts. The only
+user-shaped things in the package are assignment *settings* like
+`submission_types` and `grader_count`, which describe configuration rather than
+people. Canvas exports student data through a different mechanism entirely, so
+the surface here is far smaller than it first appears.
+
+**What does leak is student identity embedded incidentally in content**, and it
+survives in three places that are easy to miss:
+
+- A page body that names a student ("nice solution from …").
+- A **filename** in `web_resources/`, because student work gets uploaded as an
+  example and keeps the name it arrived with.
+- An **`<img alt>` attribute**, because Canvas copies a file's original filename
+  into the alt text on import. Renaming the file afterwards does not remove the
+  name from the alt text.
+
+`validate_package --names names.txt` sweeps all three, entry names as well as
+file contents. **Its limit is that you have to know the names already.** It
+finds names you give it; it does not discover them. Rolling a course forward
+from three years ago, you may not remember whose drawing is in the files. If
+that matters to you, read `web_resources/` by hand before shipping the package
+anywhere.
+
+Being untagged is separate from being private. The accessibility audit's PDF
+report says nothing about whether a PDF contains student work.
 
 ## Where this came from
 
