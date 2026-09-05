@@ -267,7 +267,17 @@ When you only need to add or fix part of a live course, ship only that part:
 - Declare **no modules and no pages** — an empty `<organizations>` tree and an
   empty `modules` element in `module_meta.xml`. Canvas imports the resources
   and touches nothing that already exists, so there is no duplication risk.
-- Include only the files the imported content actually references.
+- Include only the files the imported content actually references. Include them
+  even when they already exist in the destination course: the link would resolve
+  either way, but a package that cannot be validated on its own is a package
+  nobody can check.
+- If the assignments point at assignment groups that already exist in the
+  destination course, construct the builder with
+  `external_assignment_groups=True` and ship no `assignment_groups.xml`.
+  Shipping the groups risks duplicating every one of them and silently
+  reweighting the gradebook, which is far worse than an assignment landing in
+  the wrong group. Without the flag, `validate()` fails an assignment that has
+  no declared group, and it should: in a normal build that is a bug.
 - Build it from the **same source** as the full package, so the two cannot
   drift. A proxy object that wraps the builder and swallows `new_module` /
   `add_item` / `add_page_resource` lets the same content function run

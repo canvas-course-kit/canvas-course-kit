@@ -521,6 +521,21 @@ def main():
     ok("the privacy CLI exits 0 even when it flags things",
        priv.main([str(built)]) == 0)
 
+    print("\n12. A targeted package may reference the live course's assignment groups")
+
+    from canvas_imscc.builder import ImsccBuilder
+    for external, expect_ok in ((False, False), (True, True)):
+        bb = ImsccBuilder("T", tmp / ("extgrp-%s" % external),
+                          external_assignment_groups=external)
+        bb.add_assignment_resource("A", "<p>x</p>", "gLIVEGROUPFROMTHECOURSE")
+        bb.write_manifest_and_settings()
+        got_ok, rep = bb.validate()
+        ok("external_assignment_groups=%s -> validate ok is %s"
+           % (external, expect_ok), got_ok is expect_ok, rep.splitlines()[-1])
+    # The False case above is the one that matters: an assignment with no
+    # declared group is still a hard failure by default, because Canvas
+    # silently reweights a gradebook. The opt-out has to be asked for.
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

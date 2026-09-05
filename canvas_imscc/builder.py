@@ -78,7 +78,18 @@ def slugify(name):
 
 class ImsccBuilder:
     def __init__(self, course_title, build_dir, canvas_domain="canvas.instructure.com",
-                 root_account_name="Your Institution", extra_head_html=""):
+                 root_account_name="Your Institution", extra_head_html="",
+                 external_assignment_groups=False):
+        # external_assignment_groups: this package's assignments point at
+        # assignment groups that already exist in the DESTINATION course, by
+        # identifier, and the package deliberately ships no
+        # assignment_groups.xml. Only meaningful for a targeted package added to
+        # a live course (see docs/playbook.md). Shipping the groups there risks
+        # duplicating every one of them and silently reweighting the gradebook,
+        # which is a far worse outcome than an assignment landing in the wrong
+        # group. Leave this False for a normal build, where an assignment with
+        # no declared group IS a bug.
+        self.external_assignment_groups = external_assignment_groups
         self.course_title = course_title
         self.canvas_domain = canvas_domain
         self.root_account_name = root_account_name
@@ -677,7 +688,14 @@ class ImsccBuilder:
         # Assignment groups must be declared, and their weights must sum to
         # 100 if any weight is set at all, or Canvas silently reweights.
         groups = getattr(self, "assignment_groups", None) or []
-        if n_assignments and not groups:
+        if n_assignments and not groups and self.external_assignment_groups:
+            lines.append(
+                f"assignment groups: none declared, by request. "
+                f"{n_assignments} assignment(s) reference groups expected to "
+                f"exist already in the destination course. If an identifier is "
+                f"wrong the assignment lands in a default group, so check "
+                f"where it landed after importing")
+        elif n_assignments and not groups:
             ok = False
             lines.append(f"ASSIGNMENT GROUPS: none declared but {n_assignments} assignment(s) exist")
         elif groups:
