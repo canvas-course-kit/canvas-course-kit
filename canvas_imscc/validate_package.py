@@ -380,6 +380,20 @@ def check(path, personal_names=(), a11y=True):
         else:
             notes.append("accessibility: no automated problems in %d html "
                          "page(s) (pdfs not scanned)" % pages)
+    # 12. Possible student data, reported and never enforced, for the same
+    #     reason as the accessibility notes: this cannot decide anything, it
+    #     can only tell a human where to look. See canvas_imscc/privacy.py.
+    if a11y:
+        from .privacy import audit_privacy
+        pf, _ = audit_privacy(path)
+        if pf:
+            n_rev = sum(1 for f in pf if f.severity == "review")
+            notes.append(
+                "possible student data: %d to review, %d to look at — run "
+                "`python3 -m canvas_imscc.privacy <package>`. Not a "
+                "compliance check; nothing here blocks anything"
+                % (n_rev, len(pf) - n_rev))
+
     return problems, notes
 
 
