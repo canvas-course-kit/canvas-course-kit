@@ -145,6 +145,17 @@ class ImsccBuilder:
             target = self.wiki / fname
         target.write_text(self._page_html(title, body_html, rid))
         self.resources.append({"id": rid, "type": "page", "href": f"wiki_content/{fname}", "title": title})
+        # Remembered so page_link() can resolve links written before this
+        # page existed. Two pages sharing a title cannot be told apart by a
+        # link, so say so rather than silently pointing every link at one.
+        if not hasattr(self, "page_ids"):
+            self.page_ids = {}
+        if title in self.page_ids:
+            raise ValueError(
+                "two pages are titled %r. Canvas derives a page's URL from its "
+                "title, so these would collide in the live course and "
+                "page_link() cannot tell them apart." % title)
+        self.page_ids[title] = rid
         return rid
 
     def add_file_resource(self, rel_path, src_path=None):
@@ -181,6 +192,91 @@ class ImsccBuilder:
     # Assignment Group to belong to (Studies, Midterm, Extended Drawings,
     # Participation, Final, ... — these map directly onto the syllabus's
     # grading category weights) declared once in course_settings/assignment_groups.xml.
+
+    def add_syllabus(self, body_html):
+        """Fill Canvas's dedicated Syllabus page (Course > Syllabus).
+
+        Not a Page and not a module item: Canvas has one built-in Syllabus per
+        course, and a real export carries it as course_settings/syllabus.html
+        declared in its OWN resource with intendeduse="syllabus". It is
+        deliberately not listed inside the main course_settings resource;
+        that is the shape a real export uses.
+
+        Worth knowing before you go hunting: the Common Cartridge viewer does
+        not render the Syllabus page, so a correct package looks like it is
+        missing until you actually import it."""
+        self.syllabus_html = body_html
+
+    # -- Page-to-page links --------------------------------------------------
+    #
+    # The trap here cost 54 import errors in one package, every one reported
+    # only as the unhelpful "Missing links found in imported content - Wiki
+    # Page body", with the live links landing on "page not found".
+    #
+    # Canvas links a page to another page as:
+    #
+    #     $WIKI_REFERENCE$/pages/<RESOURCE IDENTIFIER>
+    #
+    # The target is the page's identifier in imsmanifest.xml. NOT a URL slug,
+    # NOT the page title, and NOT $WIKI_REFERENCE$/wiki_pages/<anything> —
+    # wiki_pages is the ActiveRecord model name, not a route, and it does not
+    # resolve.
+    #
+    # A fragment needs a query string in front of it:
+    #
+    #     /pages/<id>                    opens the page
+    #     /pages/<id>#anchor             BREAKS. Canvas absorbs the fragment
+    #                                    into the identifier, finds no page,
+    #                                    and offers to create one
+    #     /pages/<id>?titleize=0#anchor  opens the page AND jumps to the anchor
+    #
+    # because canvas-lms parses the object id with UriMatch#query = rest[/\?.*/],
+    # so "?" is what terminates it. All three confirmed by live import.
+    #
+    # The ids do not exist until the pages are added, so forward references
+    # cannot be written directly. page_link() emits a placeholder and
+    # write_manifest_and_settings() resolves them all once every page exists.
+
+    def page_link(self, page_title, anchor=None):
+        """An href linking to another page in this package, by its title.
+
+        Use it while building any page, assignment or syllabus body, including
+        for a page you have not added yet:
+
+            body = 'See <a href="%s">Aquatint</a>.' % b.page_link("Aquatint")
+
+        Resolution happens in write_manifest_and_settings(), which fails if a
+        link names a page that was never added."""
+        ref = "$WIKI_REFERENCE$/pages/@@%s@@" % page_title
+        return "%s?titleize=0#%s" % (ref, anchor) if anchor else ref
+
+    def _resolve_page_links(self):
+        """Swap every page_link() placeholder for the real resource id.
+
+        Every .html in the build directory, because assignment bodies and the
+        syllabus link to pages too, not just other pages."""
+        import re as _re
+        titles = getattr(self, "page_ids", None) or {}
+        missing, touched = set(), 0
+        for f in self.build.rglob("*.html"):
+            txt = f.read_text(encoding="utf-8")
+            if "@@" not in txt:
+                continue
+            def sub(m):
+                rid = titles.get(m.group(1))
+                if rid is None:
+                    missing.add(m.group(1))
+                    return m.group(0)
+                return rid
+            new = _re.sub(r"@@(.+?)@@", sub, txt)
+            if new != txt:
+                f.write_text(new, encoding="utf-8")
+                touched += 1
+        if missing:
+            raise ValueError(
+                "page_link() names %d page(s) that were never added: %s"
+                % (len(missing), sorted(missing)))
+        return touched
 
     def _weighting_scheme_xml(self):
         """The one line that decides whether the weights mean anything.
@@ -359,16 +455,23 @@ class ImsccBuilder:
         href = xesc(r["href"], {'"': "&quot;"})
         quote_map = {'"': "&quot;"}
         res_type = ("associatedcontent/imscc_xmlv1p1/learning-application-resource"
-                    if r["type"] in ("assignment", "coursesettings") else "webcontent")
-        if r["type"] == "coursesettings":
+                    if r["type"] in ("assignment", "coursesettings", "syllabus") else "webcontent")
+        if r["type"] == "syllabus":
+            files = f'      <file href="{href}"/>\n'
+        elif r["type"] == "coursesettings":
             # The href file is itself one of the listed <file> entries here,
             # so don't emit it twice — match Canvas's own layout exactly.
             files = "".join(f'      <file href="{xesc(f, quote_map)}"/>\n' for f in r["extra_files"])
         else:
             files = f'      <file href="{href}"/>\n' + "".join(
                 f'      <file href="{xesc(f, quote_map)}"/>\n' for f in r.get("extra_files", []))
+        # intendeduse="syllabus" is how a real export marks the file that
+        # becomes Canvas's dedicated Syllabus page. It is spec-defined and
+        # Canvas keys on it; without it syllabus.html imports as an ordinary
+        # file sitting in course_settings/ that nothing ever shows.
+        use = f' intendeduse="{r["intendeduse"]}"' if r.get("intendeduse") else ""
         return (
-            f'    <resource identifier="{r["id"]}" type="{res_type}" href="{href}">\n'
+            f'    <resource identifier="{r["id"]}" type="{res_type}" href="{href}"{use}>\n'
             f'{files}'
             f'    </resource>\n'
         )
@@ -385,6 +488,7 @@ class ImsccBuilder:
         """Writes imsmanifest.xml and course_settings/{module_meta,course_settings,context}.xml
         into build_dir, from whatever modules/resources have been registered
         so far. Call this once, after all modules/items/resources are added."""
+        self._resolve_page_links()
         parts = ['<?xml version="1.0" encoding="UTF-8"?>\n']
         parts.append(
             '<manifest identifier="' + gid() + '" '
@@ -592,18 +696,40 @@ class ImsccBuilder:
 </media_tracks>
 """)
 
+        # The dedicated Syllabus page, if one was set. Declared in its own
+        # resource with intendeduse="syllabus", and deliberately NOT listed
+        # among the course_settings files below, which is exactly how a real
+        # Canvas export lays it out.
+        syllabus_resource = None
+        if getattr(self, "syllabus_html", None) is not None:
+            (self.cs / "syllabus.html").write_text(
+                self._page_html("Syllabus", self.syllabus_html, gid()))
+            syllabus_resource = {
+                "id": None, "type": "syllabus",
+                "href": "course_settings/syllabus.html",
+                "intendeduse": "syllabus",
+            }
+
         settings_files = [f"course_settings/{n}" for n in (
             "course_settings.xml", "module_meta.xml", "assignment_groups.xml",
             "rubrics.xml", "files_meta.xml", "context.xml", "media_tracks.xml",
             "canvas_export.txt",
         ) if (self.cs / n).exists()]
         self.course_settings_resource_id = gid()
+        if syllabus_resource:
+            # Real exports name it after the course_settings resource, as
+            # "<that id>_syllabus". Identifiers are otherwise g + 32 hex and
+            # a hand-written one fails silently, so copy the export's shape
+            # rather than inventing something readable.
+            syllabus_resource["id"] = "%s_syllabus" % self.course_settings_resource_id
         parts.append("  <resources>\n")
         parts.append(self._resource_xml({
             "id": self.course_settings_resource_id, "type": "coursesettings",
             "href": "course_settings/canvas_export.txt",
             "extra_files": settings_files,
         }))
+        if syllabus_resource:
+            parts.append(self._resource_xml(syllabus_resource))
         for r in self.resources:
             parts.append(self._resource_xml(r))
         parts.append("  </resources>\n</manifest>\n")
@@ -679,7 +805,19 @@ class ImsccBuilder:
                 f"assignment(s) into Pages and dropping the assignment groups and rubrics"
             )
         else:
-            declared_files = {f.get('href') for f in declared[0].findall('cc:file', ns)}
+            # Union in every OTHER resource that declares a course_settings
+            # file, not just the main one. syllabus.html lives in its own
+            # resource with intendeduse="syllabus" and is deliberately absent
+            # from the main resource's file list, which is how a real export
+            # lays it out — so checking against the main resource alone
+            # rejected a correct package and blocked the build.
+            declared_files = set()
+            for res in root.findall('.//cc:resources/cc:resource', ns):
+                for f in res.findall('cc:file', ns):
+                    if (f.get('href') or "").startswith("course_settings/"):
+                        declared_files.add(f.get('href'))
+                if (res.get('href') or "").startswith("course_settings/"):
+                    declared_files.add(res.get('href'))
             on_disk = {f"course_settings/{p.name}" for p in self.cs.iterdir() if p.is_file()}
             undeclared = on_disk - declared_files
             if undeclared:
@@ -766,6 +904,37 @@ class ImsccBuilder:
         with zipfile.ZipFile(out_path) as z:
             names = set(z.namelist())
         missing = [h for h in hrefs if h not in names]
+
+        # And the other direction. This check only ever asked whether every
+        # declared href made it into the zip, which passes clean on a package
+        # carrying files nobody declared. add_page_resource() renames rather
+        # than overwrites when the filename is taken, so building twice into
+        # the same directory leaves aquatint-2.html beside aquatint.html; the
+        # manifest points only at the new one, and the loop above zips whole
+        # folders, so the stale copy rides along. One package shipped 193
+        # entries against 79 resources that way, validated clean, and imported
+        # ~110 files into the course's Files area that had to be deleted by
+        # hand, one checkbox at a time.
+        #
+        # A hard failure, not a warning. The fix is one line in the build
+        # script -- shutil.rmtree(build_dir) before constructing the builder --
+        # and a warning here would be read past.
+        declared = set(hrefs)
+        for r in tree.getroot().findall('.//cc:resources/cc:resource', ns):
+            for f in r.findall('cc:file', ns):
+                declared.add(f.get('href'))
+        declared.add("imsmanifest.xml")
+        orphans = sorted(n for n in names
+                         if not n.endswith("/")
+                         and html.unescape(n) not in {html.unescape(d) for d in declared if d})
+        if orphans:
+            raise ValueError(
+                "%d file(s) in the build directory are declared by no resource, so they "
+                "would import into Canvas as Files nobody asked for. This is almost always "
+                "a stale build directory: rmtree it before building. Orphans:\n  %s"
+                % (len(orphans), "\n  ".join(orphans[:20])
+                   + ("\n  ... and %d more" % (len(orphans) - 20) if len(orphans) > 20 else "")))
+
         report = f"Resources: {len(hrefs)} | Missing from zip: {missing or 'none'}"
         return out_path, report
 

@@ -8,8 +8,8 @@ same `.imscc` export package Canvas itself produces, and importing it.
 
 - **Builds a real Canvas course from a folder of your own material** — modules,
   pages, files, assignments with points and due dates, weighted gradebook
-  groups, rubrics — and packages it as a file you import yourself, no admin
-  involved.
+  groups, rubrics, the Syllabus page, and working page-to-page links — and
+  packages it as a file you import yourself, no admin involved.
 - **Rolls a course forward** from last term's export, usually touching under 5%
   of the package and carrying everything else through untouched.
 - **Catches the import failures that are silent**, the ones where Canvas reports
@@ -455,9 +455,8 @@ accept if it were built.
 - **Quizzes and question banks.** QTI is a separate format inside the cartridge
   and nothing here writes it.
 - **LTI tools, discussions, announcements, and peer review.**
-- **The Syllabus page.** Canvas has a dedicated one, written as
-  `course_settings/syllabus.html` and declared with `intendeduse="syllabus"`.
-  There is no builder API for it; it has to be hand-rolled.
+  ([courseforge](https://github.com/jasp-nerd/courseforge) writes discussions
+  and announcements, if you need them.)
 - **Per-section differentiation.** `assignment_overrides` is how one course
   gives two sections different due dates. Not implemented.
 

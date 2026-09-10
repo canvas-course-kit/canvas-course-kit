@@ -161,6 +161,87 @@ def main():
        not any("declared by no resource" in p for p in problems)
        and any("late_policy" in n for n in notes_es), str(problems[:1]) + str(notes_es))
 
+    print("\n7c. The syllabus, page links, and the build-time orphan check")
+    from canvas_imscc.builder import ImsccBuilder
+    import xml.etree.ElementTree as _ET
+
+    sb = tmp / "syl_build"
+    b2 = ImsccBuilder("Syllabus Course", sb, canvas_domain="x.instructure.com",
+                      root_account_name="U")
+    m2 = b2.new_module("M")
+    # A link written BEFORE the target page exists, which is the case that
+    # cannot be handled by passing an id around.
+    rid_a = b2.add_page_resource(
+        "Alpha", '<p>See <a href="%s">Beta</a> and <a href="%s">its middle</a>.</p>'
+        % (b2.page_link("Beta"), b2.page_link("Beta", anchor="middle")))
+    rid_b = b2.add_page_resource("Beta", "<p>b</p>")
+    b2.add_item(m2, "WikiPage", "Alpha", resource_id=rid_a)
+    b2.add_item(m2, "WikiPage", "Beta", resource_id=rid_b)
+    b2.add_syllabus("<p>Come to class.</p>")
+    b2.write_manifest_and_settings()
+    ok2, rep2 = b2.validate()
+    ok("validate() accepts a package carrying a syllabus", ok2, rep2)
+
+    syl_pkg = tmp / "syllabus.imscc"
+    b2.zip_package(syl_pkg)
+    with zipfile.ZipFile(syl_pkg) as z:
+        man2 = z.read("imsmanifest.xml").decode()
+        alpha = z.read([n for n in z.namelist() if n.endswith("alpha.html")][0]).decode()
+        syl_in_zip = "course_settings/syllabus.html" in z.namelist()
+    ok("syllabus.html is in the package", syl_in_zip)
+    ok("syllabus is declared with intendeduse", 'intendeduse="syllabus"' in man2,
+       man2[:0])
+    ok("syllabus resource id is derived from course_settings",
+       '%s_syllabus' % b2.course_settings_resource_id in man2)
+    ok("a forward page link resolved to the real resource id",
+       "$WIKI_REFERENCE$/pages/%s" % rid_b in alpha, alpha)
+    ok("an anchored page link keeps its query delimiter",
+       "/pages/%s?titleize=0#middle" % rid_b in alpha, alpha)
+    ok("no placeholder survived", "@@" not in alpha, alpha)
+    problems, _ = check(syl_pkg)
+    ok("the finished syllabus package validates", not problems, str(problems[:2]))
+
+    # A link naming a page nobody added must stop the build.
+    b3 = ImsccBuilder("Bad Links", tmp / "bad_build", canvas_domain="x.instructure.com",
+                      root_account_name="U")
+    m3 = b3.new_module("M")
+    b3.add_item(m3, "WikiPage", "A",
+                resource_id=b3.add_page_resource(
+                    "A", '<a href="%s">x</a>' % b3.page_link("Nonexistent")))
+    try:
+        b3.write_manifest_and_settings()
+        ok("a link to a page that was never added fails the build", False, "no error")
+    except ValueError as exc:
+        ok("a link to a page that was never added fails the build",
+           "Nonexistent" in str(exc), str(exc)[:120])
+
+    # The validator must reject the two link forms that do not resolve.
+    for bad, why in ((("$WIKI_REFERENCE$/wiki_pages/aquatint"), "wiki_pages is not a route"),
+                     (("$WIKI_REFERENCE$/pages/%s#middle" % rid_b), "undelimited fragment")):
+        pkg = tmp / ("badlink%d.imscc" % abs(hash(bad)) )
+        rf.stream_rewrite(syl_pkg, pkg, transform=lambda n, d, bad=bad: (
+            d.replace(b"$WIKI_REFERENCE$/pages/" + rid_b.encode(), bad.encode())
+            if n.endswith("alpha.html") else d))
+        problems, _ = check(pkg)
+        ok("the validator rejects %s" % why,
+           any("$WIKI_REFERENCE$" in p for p in problems), str(problems[:2]))
+
+    # Building twice into the same directory must fail rather than ship the
+    # stale copy. This is issue #6's other half: the validator catches it in
+    # the finished package, this catches it before the package exists.
+    b4 = ImsccBuilder("Rebuilt", sb, canvas_domain="x.instructure.com",
+                      root_account_name="U")
+    m4 = b4.new_module("M")
+    b4.add_item(m4, "WikiPage", "Alpha",
+                resource_id=b4.add_page_resource("Alpha", "<p>again</p>"))
+    b4.write_manifest_and_settings()
+    try:
+        b4.zip_package(tmp / "rebuilt.imscc")
+        ok("a rebuild into a dirty directory fails at zip time", False, "no error")
+    except ValueError as exc:
+        ok("a rebuild into a dirty directory fails at zip time",
+           "declared by no resource" in str(exc), str(exc)[:120])
+
     print("\n6b. Path encodings taken from a real Canvas export")
     # Both of these appear verbatim in real exports and were missed by
     # generating candidate spellings.

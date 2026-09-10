@@ -359,6 +359,51 @@ def check(path, personal_names=(), a11y=True):
                 if ref not in ids:
                     problems.append("dangling Canvas reference in %s -> %s" % (nm, ref))
 
+        # 7b. $WIKI_REFERENCE$ page links must use the one form Canvas
+        #     resolves. This is cheap and it would have caught 54 broken links
+        #     in a package that passed every other check, passed the cartridge
+        #     viewer, and passed a bespoke check confirming every target
+        #     matched a real page's slug. Nothing catches it until import, and
+        #     import reports it only as "Missing links found in imported
+        #     content - Wiki Page body".
+        #
+        #       /pages/<resource id>                   correct
+        #       /pages/<id>#anchor                     BREAKS: Canvas absorbs
+        #                                              the fragment into the
+        #                                              identifier and offers to
+        #                                              create the missing page
+        #       /pages/<id>?titleize=0#anchor          correct, and jumps
+        #       /wiki_pages/<anything>                 never resolves
+        #
+        #     canvas-lms parses the object id with UriMatch#query = rest[/\?.*/],
+        #     so "?" is what terminates it. All confirmed by live import.
+        for nm in sorted(n for n in names if _carries_links(n)):
+            body = _link_text(nm, z.read(nm).decode("utf8", "replace"))
+            for wref in re.findall(r"\$WIKI_REFERENCE\$(/[^\"'\s>]*)", body):
+                seg = wref.split("/", 2)
+                kind = seg[1] if len(seg) > 1 else ""
+                if kind not in ("pages", "wiki"):
+                    problems.append(
+                        "%s links to $WIKI_REFERENCE$%s. Canvas resolves "
+                        "/pages/<resource id>; %r is not a route it serves"
+                        % (nm, wref, "/" + kind))
+                    continue
+                rest = seg[2] if len(seg) > 2 else ""
+                if "#" in rest and "?" not in rest.split("#", 1)[0]:
+                    problems.append(
+                        "%s links to $WIKI_REFERENCE$%s. A fragment needs a query "
+                        "string in front of it or Canvas reads the anchor as part "
+                        "of the page id and the link breaks. Use "
+                        "?titleize=0#<anchor>" % (nm, wref))
+                    continue
+                target = rest.split("?")[0].split("#")[0]
+                # A slug target is legal; only an id target can be checked.
+                if kind == "pages" and re.fullmatch(r"g[0-9a-f]{32}", target) \
+                        and target not in ids:
+                    problems.append(
+                        "%s links to $WIKI_REFERENCE$%s, and %s is not a resource "
+                        "declared in this package" % (nm, wref, target))
+
         # 7. No dangling $IMS-CC-FILEBASE$ links. These are relative to
         #    web_resources/ and are percent-encoded and then XML-escaped, and
         #    Canvas's encoding is not urllib's (it leaves commas literal), so

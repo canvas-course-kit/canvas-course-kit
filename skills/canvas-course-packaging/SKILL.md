@@ -256,6 +256,10 @@ wrong on every day before that class happens.
 | A file link is broken in the live course | `$IMS-CC-FILEBASE$` links are relative to `web_resources/`, percent-encoded then XML-escaped, and Canvas leaves commas literal unlike `urllib.parse.quote`. Use `rollforward.html_href()` |
 | Something you changed did not change | You matched one spelling of a path. There are at least three. Use `rollforward.path_spellings()` |
 | "Missing links found in imported content" | A stale `$CANVAS_OBJECT_REFERENCE$/modules/<id>` or `$CANVAS_COURSE_REFERENCE$/file_ref/<id>`. These survive course-to-course copies for years, so check the source export before assuming you caused it |
+| "Missing links found in imported content", on links you just wrote | A page-to-page link in a form Canvas does not resolve. It is `$WIKI_REFERENCE$/pages/<resource id>`; `/wiki_pages/<slug>` is not a route, and a `#anchor` needs `?titleize=0` in front of it or the fragment is absorbed into the id. Use `builder.page_link()` |
+| Weighted groups import, and the gradebook still totals points | `course_settings.xml` is missing `<group_weighting_scheme>percent</group_weighting_scheme>`. Different failure from rule 2: the groups *do* arrive, they are just never applied, and every grade is quietly wrong |
+| Extra copies of pages appear in Files after import | Stale files in the build directory. `add_page_resource()` renames rather than overwrites, and whole folders are zipped. `rmtree` the build dir first |
+| The Syllabus page looks missing in the cartridge viewer | The viewer does not render it. Import and look in Canvas before hunting for a bug |
 | A module or item you added never appears in Canvas | Rule 3. It went into `module_meta` but not `<organizations>` |
 | A dangling link nobody's checker found | Discussion and announcement bodies are escaped HTML inside their own `.xml`, not `.html`. Scan every text entry |
 | "assignment group weights sum to 0.0, not 100" on a valid course | Not an error. All-zero weights mean an unweighted, points-based gradebook |
