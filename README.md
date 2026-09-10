@@ -330,14 +330,84 @@ report says nothing about whether a PDF contains student work.
 
 Everything here was derived empirically — by reading real Canvas exports, and
 by importing hand-built packages into a real Canvas instance and looking at
-what actually happened. Official IMS and Canvas documentation was not
-consulted. Every gotcha in the playbook is a bug that shipped at least once.
+what actually happened. Every gotcha in the playbook is a bug that shipped at
+least once.
+
+The empirical method still comes first, because it is the only thing that tells
+you what your Canvas actually does. But documentation does exist and is worth
+reading once you know what to look for; see **Related work** below for where it
+is and what each source settles.
 
 If Canvas changes its export format, re-derive from a fresh export rather than
 assuming these notes stay valid forever. The method that matters is the one in
 the playbook: **when a hand-built package behaves unlike a real export, diff
 the manifests.** A real export is the only authority, and you can produce one
 in two minutes.
+
+## Related work
+
+**[brockcraft/canvas-imscc](https://github.com/brockcraft/canvas-imscc)** (MIT)
+is a Claude skill for reading and building `.imscc` files, from a
+course-cartridge project at the University of Washington. It overlaps this kit
+and is worth reading: it is short, and its two reference files cover extraction
+and reconstruction in one pass.
+
+It contributed a fix here. It states that Canvas resource identifiers must be
+`g` plus 32 hex characters and that human-readable ids fail silently, which
+caught a hand-written identifier in a package this kit had already validated as
+clean.
+
+Two of its claims did not survive testing, recorded here so nobody re-tests
+them:
+
+| Claim | What we found |
+|---|---|
+| ZIP entries must use `ZIP_STORED`; `ZIP_DEFLATED` fails silently | Three real Canvas exports are predominantly **deflated** (one is 198 deflated entries and zero stored). Packages from this kit are fully deflated and import fine |
+| Rubrics in `rubrics.xml` reach the rubric bank but are **not** attached to assignments, so attachment must be done by hand afterwards | `<rubric_identifierref>` inside `assignment_settings.xml` is the attachment mechanism, and it travels in the package. Confirmed by importing 13 assignments built this way: **the rubrics arrived attached** |
+
+Neither is a criticism. Both are the failure mode described just above — a
+conclusion drawn from one instance and one set of failures. Ours are too.
+**Diff against a real export before believing any of us.**
+
+### Where the documentation is
+
+- **[canvas-lms](https://github.com/instructure/canvas-lms) itself** is the only
+  place the Canvas-specific half is documented at all, because
+  `course_settings/*.xml`, rubrics, `assignment_settings` and
+  `group_weighting_scheme` are Canvas extensions that appear in no published
+  standard. `lib/cc/cc_helper.rb` defines the reference tokens and every URL
+  form Canvas emits. `lib/user_content.rb` holds the `UriMatch` parsing that
+  decides what survives a rewrite. And
+  `spec/lib/canvas_imported_html_converter_spec.rb` documents what the
+  **importer** accepts, as executable examples — the closest thing to a
+  specification that exists.
+- **The [Common Cartridge v1.1 Implementation profile](https://www.imsglobal.org/cc/ccv1p1/imscc_profilev1p1-Implementation.html)**
+  covers the container rather than the Canvas payload, but it is where the hard
+  constraints live: one organization, rooted on a single **untitled** item
+  container, resources identified with GUIDs, and only Learner Experience
+  resource types in the organization hierarchy.
+- **The Canvas REST API docs are not useful for this.** They describe live
+  objects, not the export format, and are silent on the fields that decide
+  whether an import succeeds.
+
+## What this kit does not do
+
+Not limitations of the format, just of this kit. Each is a package Canvas would
+accept if it were built.
+
+- **Quizzes and question banks.** QTI is a separate format inside the cartridge
+  and nothing here writes it.
+- **LTI tools, discussions, announcements, and peer review.**
+- **The Syllabus page.** Canvas has a dedicated one, written as
+  `course_settings/syllabus.html` and declared with `intendeduse="syllabus"`.
+  There is no builder API for it; it has to be hand-rolled.
+- **Per-section differentiation.** `assignment_overrides` is how one course
+  gives two sections different due dates. Not implemented.
+
+And one thing no package can do, which matters more than any of the above:
+**Canvas cannot update an existing page or assignment on import.** It only
+adds. A second import of the same package duplicates everything, and undoing it
+is one checkbox at a time.
 
 ## Reporting a Canvas behaviour that does not match these docs
 
