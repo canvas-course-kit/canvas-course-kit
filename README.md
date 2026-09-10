@@ -1,4 +1,4 @@
-# canvas-course-kit
+# Canvas Course Kit
 
 Build a Canvas course — modules, pages, files, real gradebook-integrated
 assignments, rubrics, due dates — **without API access**, by hand-building the
