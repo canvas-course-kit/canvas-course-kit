@@ -68,8 +68,21 @@ do the rest.
 
 ## Quick start
 
+**Never used GitHub before?** You do not need to. Download
+**[the whole kit as a zip file](https://github.com/canvas-course-kit/canvas-course-kit/archive/refs/heads/main.zip)**
+and unzip it. That is what "clone the repo" means, and the zip is the same
+files.
+
+The simplest way to use it from there, if you work with an AI coding assistant:
+put the unzipped folder next to your course materials, in one folder, and point
+the assistant at that folder. It will find the kit, read the skills in
+`skills/`, and take it from there. You do not have to run any of the commands
+below yourself.
+
+If you would rather drive it yourself:
+
 ```bash
-git clone <this repo>
+git clone https://github.com/canvas-course-kit/canvas-course-kit.git
 cd canvas-course-kit
 
 # Build the example course
@@ -368,6 +381,50 @@ them:
 Neither is a criticism. Both are the failure mode described just above — a
 conclusion drawn from one instance and one set of failures. Ours are too.
 **Diff against a real export before believing any of us.**
+
+**[jasp-nerd/courseforge](https://github.com/jasp-nerd/courseforge)**
+(Apache-2.0) is a TypeScript monorepo that solves the opposite half of this
+problem. It generates a cartridge and then pushes it through Canvas's
+`content_migrations` API, wrapped in an MCP server, so one call builds a whole
+course. If you have a working Canvas API token, that is the easier road and you
+should take it. This kit exists for institutions that have turned personal
+access tokens off, where the hand-import is the only way in.
+
+It is worth reading anyway. Its `docs/imscc-format.md` covers the same ground as
+this README and agrees with it, and it does two things this kit does not: real
+QTI 1.2 quiz generation for eight question types, and discussions and
+announcements. It is also the source of the orphan-file check below. Two gaps
+to know about if you go that way: rubrics are an empty stub in its builder and
+still on its roadmap, and it does not set `group_weighting_scheme`, so weighted
+gradebooks import and are silently ignored — the same bug this kit shipped
+until it was caught.
+
+It contributed a check here. Its validator asks whether every file **in the
+zip** is declared by some resource, which is the direction this kit's validator
+was missing: check 3 asked only whether every declared file exists. A package
+built into a dirty build directory once shipped 193 entries against 79
+resources, and every check passed, because `add_page_resource()` renames rather
+than overwrites and `zip_package()` zips the whole folder. Those orphans import
+into Files as content nobody asked for. That check is now check 3b.
+
+### Testing against real cartridges
+
+CourseForge also pointed the way to
+**[commonsyllabi/commoncartridge](https://github.com/commonsyllabi/commoncartridge)**
+(MIT), a parser project whose test corpus collects public course exports from
+Canvas, Moodle, Blackboard, Brightspace and Sakai. Running this kit's validator
+across eight of them found four checks that failed correct packages:
+
+| Check | What it did | What it does now |
+|---|---|---|
+| `course_settings` files listed in their resource | Failed every real Canvas export, twice: once on the bare `course_settings/` directory entry, once on `media_tracks.xml`, which real exports ship undeclared | A note. Only the `canvas_export.txt` declaration decides anything |
+| Group weights sum to 100 | Failed a real export whose weights were stale leftovers in an unweighted course | Only binds when `group_weighting_scheme` is `percent`. Weights summing to 100 **without** it is now its own failure, because that is the silent-wrong-grades bug |
+| Empty directory entries | Failed real Canvas exports, which ship an empty `non_cc_assessments/` | A failure only under `web_resources/`, where Canvas turns it into an empty Files folder a student can click. Cosmetic elsewhere |
+
+None of these were subtle, and none of them were visible without real packages
+to run against. A validator that fails correct work gets switched off, which
+costs more than the checks were worth. If you extend this kit, run it across
+that corpus before you trust a new check.
 
 ### Where the documentation is
 

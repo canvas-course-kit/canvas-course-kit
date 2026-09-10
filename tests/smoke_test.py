@@ -141,6 +141,26 @@ def main():
     ok("undeclared course_settings is reported",
        any("NOT declared" in p for p in problems), str(problems[:1]))
 
+    # A file in the zip that no resource declares. This is what a rebuild into
+    # a dirty build directory leaves behind (add_page_resource renames rather
+    # than overwrites, zip_package zips the whole folder), and it passed every
+    # check the kit had until a package shipped 193 entries for 79 resources.
+    orphaned = tmp / "orphaned.imscc"
+    rf.stream_rewrite(built, orphaned, add={"wiki_content/leftover-2.html": b"<html/>"})
+    problems, _ = check(orphaned)
+    ok("an undeclared file in the zip is reported",
+       any("declared by no resource" in p for p in problems), str(problems[:1]))
+
+    # And the check must not fire on course_settings/, which real Canvas
+    # exports fill with files their resource does not list.
+    extra_settings = tmp / "extra_settings.imscc"
+    rf.stream_rewrite(built, extra_settings,
+                      add={"course_settings/late_policy.xml": b"<late_policy/>"})
+    problems, notes_es = check(extra_settings)
+    ok("an undeclared course_settings file is a note, not a failure",
+       not any("declared by no resource" in p for p in problems)
+       and any("late_policy" in n for n in notes_es), str(problems[:1]) + str(notes_es))
+
     print("\n6b. Path encodings taken from a real Canvas export")
     # Both of these appear verbatim in real exports and were missed by
     # generating candidate spellings.

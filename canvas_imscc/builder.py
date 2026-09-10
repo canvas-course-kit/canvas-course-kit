@@ -182,6 +182,27 @@ class ImsccBuilder:
     # Participation, Final, ... — these map directly onto the syllabus's
     # grading category weights) declared once in course_settings/assignment_groups.xml.
 
+    def _weighting_scheme_xml(self):
+        """The one line that decides whether the weights mean anything.
+
+        Declaring group weights in assignment_groups.xml is only half of it.
+        Unless course_settings.xml also carries
+        <group_weighting_scheme>percent</group_weighting_scheme>, Canvas
+        imports every weight, shows them in the Assignments page, and then
+        grades on straight points regardless. Nothing warns. The gradebook
+        looks plausible and every final grade is wrong, which is the worst
+        shape a bug can take in a course.
+
+        So: if any group carries a non-zero weight, the course is weighted.
+        A course whose groups are all zero is a straight-points gradebook and
+        must NOT get this element, because that would switch weighting on with
+        every category worth 0%.
+        """
+        groups = getattr(self, "assignment_groups", None) or []
+        if any(float(g["weight"]) for g in groups):
+            return "  <group_weighting_scheme>percent</group_weighting_scheme>\n"
+        return ""
+
     def add_assignment_group(self, title, weight):
         """Register a grading category (e.g. "Studies", weight=30.0 for 30%).
         Call once per category; returns the group id to pass to add_assignment_resource()."""
@@ -461,7 +482,7 @@ class ImsccBuilder:
   <default_wiki_editing_roles>teachers</default_wiki_editing_roles>
   <allow_student_organized_groups>false</allow_student_organized_groups>
   <default_view>modules</default_view>
-  <license>private</license>
+{self._weighting_scheme_xml()}  <license>private</license>
   <indexed>false</indexed>
   <hide_final_grade>false</hide_final_grade>
 </course>

@@ -114,10 +114,24 @@ def check(path, personal_names=(), a11y=True):
                     "resource in imsmanifest.xml. Canvas will ignore all of course_settings/ "
                     "and every Assignment will import as a Page.")
             else:
-                declared = set(re.findall(r'<file href="(course_settings/[^"]+)"', man))
-                for f in sorted(n for n in names if n.startswith("course_settings/")):
-                    if unescape_href(f) not in {unescape_href(d) for d in declared}:
-                        problems.append("course_settings file not listed in its resource: %s" % f)
+                # Which course_settings files are listed is a NOTE, not a
+                # failure. Real Canvas exports ship files here that the
+                # resource does not list (media_tracks.xml is the common one),
+                # and they import fine, because Canvas reads the directory
+                # once it has decided the package is Canvas-flavored. Only the
+                # canvas_export.txt declaration above decides that. Skip the
+                # bare "course_settings/" directory entry, which is not a file
+                # and was reported as one against every real export tested.
+                declared = {unescape_href(d) for d in re.findall(
+                    r'<file href="(course_settings/[^"]+)"', man)}
+                undeclared = [f for f in sorted(names)
+                              if f.startswith("course_settings/")
+                              and not f.endswith("/")
+                              and unescape_href(f) not in declared]
+                if undeclared:
+                    notes.append("course_settings files not listed in the resource: %s "
+                                 "(normal in real exports; Canvas reads the directory)"
+                                 % ", ".join(undeclared))
         else:
             notes.append("no course_settings/ — fine only if this is a content-only package "
                          "with no Assignments, groups or rubrics")
@@ -128,6 +142,43 @@ def check(path, personal_names=(), a11y=True):
         for href in re.findall(r'<file href="([^"]+)"', man):
             if unescape_href(href) not in names:
                 problems.append("manifest declares a file that is not in the zip: %s" % href)
+
+        # 3b. And the other direction: every file IN the zip is declared by
+        #     some resource. Check 3 asks "does every declared file exist",
+        #     which passes clean on a package carrying files nobody declared.
+        #     That is not academic. add_page_resource() renames rather than
+        #     overwrites when a file is already in the build directory, so a
+        #     second build into a dirty directory leaves aquatint-2.html
+        #     beside aquatint.html; the manifest points only at the new one,
+        #     but zip_package() zips the whole folder. A package once shipped
+        #     193 entries where 79 were declared, and every check passed. On
+        #     import those orphans land in Files as content nobody asked for.
+        #
+        #     course_settings/ is exempt because check 2 owns it and real
+        #     exports legitimately ship undeclared files there. Directory
+        #     entries are check 10's business.
+        #
+        #     Only a hard failure for Canvas-flavored packages, which are the
+        #     ones this kit builds and mutates. A generic Common Cartridge
+        #     from another LMS may carry a whole undeclared static-site tree
+        #     by design, and failing those would be answering a question
+        #     nobody asked. Measured against a corpus of real exports from
+        #     five LMSes: zero false positives on the Canvas ones.
+        declared_files = {unescape_href(h) for h in re.findall(r'<file href="([^"]+)"', man)}
+        declared_files |= {unescape_href(h) for h in
+                           re.findall(r'<resource\b[^>]*\bhref="([^"]+)"', man)}
+        declared_files.add("imsmanifest.xml")
+        orphans = [n for n in sorted(names)
+                   if not n.endswith("/")
+                   and not n.startswith("course_settings/")
+                   and unescape_href(n) not in declared_files]
+        if orphans:
+            where = (problems if "course_settings/canvas_export.txt" in names else notes)
+            head = ("%d file(s) are in the zip but declared by no resource, so Canvas "
+                    "imports them into Files as content nobody asked for:" % len(orphans))
+            where.append(head + "".join("\n      " + o for o in orphans[:20])
+                         + ("\n      ... and %d more" % (len(orphans) - 20)
+                            if len(orphans) > 20 else ""))
 
         # 4. Every organizations item resolves to a declared resource.
         declared_ids = set(re.findall(r'<resource[^>]*\bidentifier="([^"]+)"', man))
@@ -193,8 +244,40 @@ def check(path, personal_names=(), a11y=True):
             # at all: the gradebook is straight points. That is a normal,
             # correct setup and a real Canvas export of such a course looks
             # exactly like this, so flagging it cried wolf on valid packages.
-            if any(w) and abs(sum(w) - 100.0) > 0.01:
-                problems.append("assignment group weights sum to %s, not 100" % sum(w))
+            #
+            # And weights are INERT unless course_settings.xml says
+            # <group_weighting_scheme>percent</group_weighting_scheme>. A
+            # package can carry a perfect set of weights and still grade on
+            # straight points, silently, which is its own bug (see below).
+            # Enforcing the sum on a course that is not weighted at all fails
+            # real, correct exports.
+            scheme = ""
+            if "course_settings/course_settings.xml" in names:
+                m = re.search(r"<group_weighting_scheme>([^<]*)<",
+                              z.read("course_settings/course_settings.xml").decode(
+                                  "utf8", "replace"))
+                scheme = m.group(1).strip() if m else ""
+            #
+            # Weights that sum to 100 with the scheme off is the trap: someone
+            # meant to weight the gradebook and the package silently will not.
+            # Weights that do NOT sum to 100 with the scheme off are just
+            # leftovers, because Canvas keeps whatever was typed in the group
+            # fields after weighting is switched back off, and a real export
+            # of a healthy points-based course looks exactly like that.
+            if any(w) and scheme != "percent":
+                if abs(sum(w) - 100.0) <= 0.01:
+                    problems.append(
+                        "assignment group weights sum to 100 but course_settings.xml does not "
+                        "set <group_weighting_scheme>percent</group_weighting_scheme>, so "
+                        "Canvas imports the weights and grades on straight points anyway. "
+                        "Every grade in the course will be wrong and nothing will say so.")
+                else:
+                    notes.append("assignment groups carry stale weights (%s) that sum to %g, "
+                                 "but the course is not weighted, so they are inert"
+                                 % (", ".join("%g" % x for x in w), sum(w)))
+            elif any(w) and abs(sum(w) - 100.0) > 0.01:
+                problems.append("assignment group weights sum to %s, not 100, and the course "
+                                "is set to weight by percent" % sum(w))
             elif w and not any(w):
                 notes.append("assignment groups are unweighted (points-based "
                              "gradebook)")
@@ -338,9 +421,18 @@ def check(path, personal_names=(), a11y=True):
         # 10. Empty directory entries. A zip records folders separately, so a
         #     folder whose files all moved away is still listed and Canvas
         #     still shows it.
+        #     Only under web_resources/ though: that is the tree Canvas turns
+        #     into the course's Files, so an empty one shows up as an empty
+        #     folder a student can click. Everywhere else an empty directory
+        #     entry is cosmetic, and Canvas's own exports ship them
+        #     (non_cc_assessments/ in a real single-page export), so failing on
+        #     those failed real packages for no reason.
         for d in sorted(n for n in names if n.endswith("/")):
             if not any(n != d and n.startswith(d) for n in names):
-                problems.append("empty directory entry left in the zip: %s" % d)
+                if d.startswith("web_resources/"):
+                    problems.append("empty Files folder left in the zip: %s" % d)
+                else:
+                    notes.append("empty directory entry in the zip (cosmetic): %s" % d)
 
         # WHEN this package was made, which is not a nicety. Exports pile up
         # in a folder and they all look alike; reasoning about an old one
