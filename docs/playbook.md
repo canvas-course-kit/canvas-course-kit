@@ -243,6 +243,71 @@ with it. If you are *editing* an existing rubric rather than building one, use
 `rollforward.rewrite_rubric()`; the two ways a hand-rolled rewrite goes wrong
 are in [`mutating-an-export.md`](mutating-an-export.md).
 
+## Pattern: page-to-page links
+
+Linking one page to another is the part of this format most likely to look
+right, validate clean, pass the cartridge viewer, and then produce dozens of
+errors on import. One package produced **54** of them, every one reported only
+as the unhelpful "Missing links found in imported content - Wiki Page body",
+with each live link landing on "page not found".
+
+The form Canvas resolves is:
+
+```
+$WIKI_REFERENCE$/pages/<RESOURCE IDENTIFIER>
+```
+
+The target is the page's `identifier` in `imsmanifest.xml`. Not a URL slug, not
+the page title, and **not** `$WIKI_REFERENCE$/wiki_pages/<anything>` —
+`wiki_pages` is the ActiveRecord model name, not a route, and it does not
+resolve.
+
+A fragment needs a query string in front of it:
+
+| Written | What Canvas does |
+|---|---|
+| `/pages/<id>` | opens the page |
+| `/pages/<id>#anchor` | **breaks.** The fragment is absorbed into the identifier, Canvas finds no page, and offers to create one |
+| `/pages/<id>?titleize=0#anchor` | opens the page **and** jumps to the anchor |
+
+The cause is in canvas-lms: `UriMatch#query` is `rest[/\?.*/]`, so `?` is what
+terminates the object id. Read from source, then **confirmed by live import
+(2026-09-10): a 61-page package with 208 page links and deep links into a
+glossary imported with zero errors and every anchor jumping correctly.**
+
+Use `builder.page_link(page_title)`, which handles all of this:
+
+```python
+rid = b.add_page_resource("Aquatint", body)
+# and anywhere, including in a page written BEFORE its target exists:
+body = 'See <a href="%s">Aquatint</a>.' % b.page_link("Aquatint")
+body = 'See <a href="%s">the grain</a>.' % b.page_link("Aquatint", anchor="grain")
+```
+
+Resource ids do not exist until the page is added, so `page_link()` writes a
+placeholder and `write_manifest_and_settings()` resolves them once every page
+exists. A link naming a page that was never added fails the build.
+`validate_package` rejects both broken forms independently.
+
+One consequence worth knowing: **Canvas derives a page's URL from its title.**
+Two pages sharing a title collide in the live course and no link can tell them
+apart, so `add_page_resource()` refuses the second one.
+
+## Pattern: the Syllabus page
+
+Canvas has one built-in Syllabus per course. It is not a Page and not a module
+item: a real export carries it as `course_settings/syllabus.html`, declared in
+its **own** resource with `intendeduse="syllabus"`, and deliberately left out
+of the main `course_settings` resource's file list.
+
+```python
+b.add_syllabus("<p>Everything a student needs in week one.</p>")
+```
+
+Before hunting for a bug: **the Common Cartridge viewer does not render the
+Syllabus page**, so a correct package looks like it is missing one until you
+actually import it.
+
 ## Pattern: instructor-only notes
 
 Any page meant to be adapted by another instructor benefits from a visible

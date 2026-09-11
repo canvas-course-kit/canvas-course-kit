@@ -8,8 +8,9 @@ same `.imscc` export package Canvas itself produces, and importing it.
 
 - **Builds a real Canvas course from a folder of your own material** — modules,
   pages, files, assignments with points and due dates, weighted gradebook
-  groups, rubrics, the Syllabus page, and working page-to-page links — and
-  packages it as a file you import yourself, no admin involved.
+  groups, rubrics, the Syllabus page, and working page-to-page links including
+  deep links to an anchor — and packages it as a file you import yourself, no
+  admin involved.
 - **Rolls a course forward** from last term's export, usually touching under 5%
   of the package and carrying everything else through untouched.
 - **Catches the import failures that are silent**, the ones where Canvas reports
@@ -381,6 +382,13 @@ them:
 Neither is a criticism. Both are the failure mode described just above — a
 conclusion drawn from one instance and one set of failures. Ours are too.
 **Diff against a real export before believing any of us.**
+
+The `$WIKI_REFERENCE$` link format documented here went the same way. It was
+read out of canvas-lms source first, then **confirmed by live import on
+2026-09-10**: a 61-page package carrying 208 page-to-page links, deep links
+into a glossary, 13 assignments with attached rubrics, weighted groups and a
+Syllabus page imported with **zero errors**, every anchor jumping correctly.
+That is the standard anything in this README is supposed to meet.
 
 **[jasp-nerd/courseforge](https://github.com/jasp-nerd/courseforge)**
 (Apache-2.0) is a TypeScript monorepo that solves the opposite half of this

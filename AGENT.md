@@ -216,6 +216,13 @@ file in this course", and they survive being copied from course to course for
 years, so a stale one is usually inherited rather than introduced. Check the
 source export before assuming you caused it. `validate_package` checks these.
 
+If instead the broken links are ones you **just wrote**, they are page-to-page
+links in a form Canvas does not resolve. The only form that works is
+`$WIKI_REFERENCE$/pages/<resource id>`; `/wiki_pages/<slug>` is not a route,
+and a `#anchor` must have `?titleize=0` in front of it or the fragment is
+swallowed by the identifier. Use `builder.page_link()` and let it resolve the
+ids for you. See "Pattern: page-to-page links" in the playbook.
+
 **A check passes but the thing is still wrong.** Diff against a real export.
 Do not reason about what Canvas "probably" keys on. A real export is the only
 authority, and the instructor can produce one in two minutes.
