@@ -637,6 +637,65 @@ def main():
     # declared group is still a hard failure by default, because Canvas
     # silently reweights a gradebook. The opt-out has to be asked for.
 
+    print("\n13. External-link module items")
+
+    import zipfile as _zf
+    import xml.etree.ElementTree as _ET
+
+    wb = ImsccBuilder("Links", tmp / "weblink")
+    m = wb.new_module("Reference")
+    URL = "https://collections.artsmia.org/search/medium:%20aquatint"
+    wb.add_item(m, "ExternalUrl", "A museum collection", url=URL)
+    wb.write_manifest_and_settings()
+    got_ok, rep = wb.validate()
+    ok("a package with an external link validates", got_ok, rep.splitlines()[-1])
+    wpath, _ = wb.zip_package(tmp / "weblink.imscc")
+
+    with _zf.ZipFile(wpath) as z:
+        wnames = z.namelist()
+        wman = z.read("imsmanifest.xml").decode()
+        wmeta = z.read("course_settings/module_meta.xml").decode()
+        wl = [n for n in wnames if n.endswith(".xml") and "/" not in n
+              and n != "imsmanifest.xml"]
+    ok("the weblink xml is in the zip", len(wl) == 1, str(wl))
+    ok("the weblink resource is declared imswl_xmlv1p1",
+       'type="imswl_xmlv1p1"' in wman)
+    ok("module_meta carries the url", "<url>%s</url>" % URL in wmeta)
+    ok("an external link opens in a new tab, as Canvas exports it",
+       "<new_tab>true</new_tab>" in wmeta)
+    ok("the organizations item points at the weblink resource",
+       'identifierref="%s"' % wl[0][:-4] in wman)
+    with _zf.ZipFile(wpath) as z:
+        body = z.read(wl[0]).decode()
+    ok("the weblink xml carries the href", 'href="%s"' % URL in body)
+    ok("the external link package passes the external validator",
+       check(wpath)[0] == [], str(check(wpath)[0]))
+
+    # And the two ways to get this wrong, both of which used to ship silently.
+    try:
+        wb.add_item(m, "ExternalUrl", "No url here")
+        ok("an ExternalUrl with no url is rejected", False)
+    except ValueError as e:
+        ok("an ExternalUrl with no url is rejected", "drops the item" in str(e))
+    try:
+        wb.add_item(m, "ExternalUrlz", "Typo")
+        ok("an unknown content_type is rejected", False)
+    except ValueError as e:
+        ok("an unknown content_type is rejected", "unknown module item" in str(e))
+
+    # The validator has to catch a url-less external link from the outside too,
+    # since that is the shape a hand-built or third-party package arrives in.
+    stripped = tmp / "weblink-nourl.imscc"
+    with _zf.ZipFile(wpath) as zin, _zf.ZipFile(stripped, "w") as zout:
+        for it in zin.infolist():
+            data = zin.read(it.filename)
+            if it.filename == "course_settings/module_meta.xml":
+                data = data.replace(("<url>%s</url>\n        " % URL).encode(), b"")
+            zout.writestr(it, data)
+    probs = check(stripped)[0]
+    ok("the validator flags an external link with no url",
+       any("has no <url>" in p for p in probs), str(probs))
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

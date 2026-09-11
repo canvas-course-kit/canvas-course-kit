@@ -260,6 +260,8 @@ wrong on every day before that class happens.
 | Weighted groups import, and the gradebook still totals points | `course_settings.xml` is missing `<group_weighting_scheme>percent</group_weighting_scheme>`. Different failure from rule 2: the groups *do* arrive, they are just never applied, and every grade is quietly wrong |
 | Extra copies of pages appear in Files after import | Stale files in the build directory. `add_page_resource()` renames rather than overwrites, and whole folders are zipped. `rmtree` the build dir first |
 | The Syllabus page looks missing in the cartridge viewer | The viewer does not render it. Import and look in Canvas before hunting for a bug |
+| A module item imported as nothing at all, with no error | An `ExternalUrl` item with no `<url>`, or a `content_type` Canvas does not recognise. Canvas drops both silently. `add_item` now refuses both; see "Pattern: external links in a module" |
+| An external link is dead in the cartridge viewer but fine in Canvas | The `imswl_xmlv1p1` weblink resource is missing. Canvas reads the `<url>` in `module_meta.xml` instead, so only non-Canvas readers notice |
 | A module or item you added never appears in Canvas | Rule 3. It went into `module_meta` but not `<organizations>` |
 | A dangling link nobody's checker found | Discussion and announcement bodies are escaped HTML inside their own `.xml`, not `.html`. Scan every text entry |
 | "assignment group weights sum to 0.0, not 100" on a valid course | Not an error. All-zero weights mean an unweighted, points-based gradebook |

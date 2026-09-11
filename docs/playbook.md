@@ -308,6 +308,49 @@ Before hunting for a bug: **the Common Cartridge viewer does not render the
 Syllabus page**, so a correct package looks like it is missing one until you
 actually import it.
 
+## Pattern: external links in a module
+
+A link to something outside Canvas is a module item of type `ExternalUrl`, and
+it takes **two** representations that have to agree, because two different
+readers consume two different halves of it:
+
+```python
+b.add_item(mod, "ExternalUrl", "Collection of Aquatint Prints",
+           url="https://collections.example.org/search/aquatint")
+```
+
+`add_item` writes both for you. What it writes, matching a real Canvas export
+element for element:
+
+| Where | What | Read by |
+|---|---|---|
+| `course_settings/module_meta.xml` | `<url>` on the item | **Canvas**, on import |
+| `<gid>.xml` at the zip root | an `imswl_xmlv1p1` weblink | the cartridge viewer, other LMSes |
+| `imsmanifest.xml` | `<resource type="imswl_xmlv1p1">` with no `href` attribute, its file declared only as a `<file>` child | both |
+
+Two spellings in `module_meta.xml` look like mistakes and are not. The item's
+`<identifierref>` points at **its own identifier**, not at the weblink
+resource, while the `<organizations>` item points at the weblink resource.
+Canvas exports it exactly that way. And `<new_tab>` is `true` here, where every
+other item type exports `false`.
+
+**The failure mode is total silence.** An `ExternalUrl` item with no `<url>` is
+still well-formed XML, still passes a manifest parse, and still shows a title
+in `module_meta.xml`. Canvas has nothing to link to, so it drops the item on
+import and says nothing; the cartridge viewer shows a dead entry. Nothing
+anywhere tells you a link is gone. This shipped in a real package on
+2026-09-10, found only because the instructor noticed a link missing after a
+"zero problems" import.
+
+Both halves are now checked. `add_item` refuses an `ExternalUrl` with no url,
+and `validate_package` reports a url-less external link as a hard failure and a
+weblink-less one as a note.
+
+While fixing it: `add_item` used to pass `content_type` straight through
+unchecked, so a typo or an unsupported type produced a perfectly valid item
+that imported as nothing. It now raises on anything outside `WikiPage`,
+`Attachment`, `Assignment`, `ExternalUrl` and `ContextModuleSubHeader`.
+
 ## Pattern: instructor-only notes
 
 Any page meant to be adapted by another instructor benefits from a visible

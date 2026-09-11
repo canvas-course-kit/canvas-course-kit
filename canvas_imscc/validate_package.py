@@ -228,6 +228,36 @@ def check(path, personal_names=(), a11y=True):
                                 % (it.findtext("%stitle" % CCX) or "?",
                                    mod_title))
 
+            # 5c. An ExternalUrl item whose <url> is missing or empty. Canvas
+            #     has nothing to link to, so it drops the item on import: no
+            #     error, no placeholder, the link is just not there. The
+            #     cartridge viewer shows a dead entry. Found 2026-09-10 on a
+            #     package built by this kit, which accepted 'ExternalUrl' as a
+            #     content_type and had no way to carry a url at all.
+            if meta_root is not None:
+                org_refs = dict(re.findall(
+                    r'<item[^>]*\bidentifier="([^"]+)"[^>]*\bidentifierref="([^"]+)"',
+                    man))
+                weblinks = set(re.findall(
+                    r'<resource identifier="([^"]+)" type="imswl_xmlv1p1"', man))
+                for mod in meta_root:
+                    holder = mod.find("%sitems" % CCX)
+                    for it in (holder if holder is not None else []):
+                        if it.findtext("%scontent_type" % CCX) != "ExternalUrl":
+                            continue
+                        title = it.findtext("%stitle" % CCX) or "?"
+                        if not (it.findtext("%surl" % CCX) or "").strip():
+                            problems.append(
+                                "external link %r has no <url> in module_meta, "
+                                "so Canvas drops the item on import without "
+                                "saying anything" % title)
+                        if org_refs.get(it.get("identifier")) not in weblinks:
+                            notes.append(
+                                "external link %r has no imswl_xmlv1p1 weblink "
+                                "resource, so it is invisible to the cartridge "
+                                "viewer and to non-Canvas LMSes (Canvas itself "
+                                "reads the <url> and is unaffected)" % title)
+
             counts = {}
             for ct in re.findall(r"<content_type>([^<]+)</content_type>", meta):
                 counts[ct] = counts.get(ct, 0) + 1

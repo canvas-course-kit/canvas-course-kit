@@ -431,18 +431,80 @@ class ImsccBuilder:
         self.modules.append(mod)
         return mod
 
-    def add_item(self, mod, content_type, title, resource_id=None, indent=0):
-        """content_type: 'WikiPage', 'Attachment', or 'ContextModuleSubHeader'
-        (a plain text divider with no resource_id, no click target).
+    ITEM_TYPES = ("WikiPage", "Attachment", "Assignment", "ExternalUrl",
+                  "ContextModuleSubHeader")
+
+    def add_item(self, mod, content_type, title, resource_id=None, indent=0,
+                 url=None, new_tab=None):
+        """content_type: 'WikiPage', 'Attachment', 'Assignment', 'ExternalUrl'
+        or 'ContextModuleSubHeader' (a plain text divider with no resource_id,
+        no click target).
         indent: 0-5, Canvas's module-item indent level — this is how you
-        fake sub-modules, since Canvas Modules don't actually nest."""
-        mod["items"].append({
+        fake sub-modules, since Canvas Modules don't actually nest.
+        url: required for, and only valid on, an 'ExternalUrl' item.
+        new_tab: whether the item opens in a new tab. Defaults to True for
+        ExternalUrl (matching what Canvas itself exports) and False otherwise.
+
+        content_type used to be passed straight through unchecked, so a type
+        Canvas does not recognise produced a well-formed item that silently
+        went nowhere. Unknown types now raise."""
+        if content_type not in self.ITEM_TYPES:
+            raise ValueError(
+                "unknown module item content_type %r. Canvas ignores module "
+                "items it does not recognise, so this would have imported as "
+                "nothing at all. Known types: %s"
+                % (content_type, ", ".join(self.ITEM_TYPES)))
+        item = {
             "id": gid(),
             "content_type": content_type,
             "title": title,
             "resource_id": resource_id,
             "indent": indent,
-        })
+            "url": url,
+            "new_tab": bool(new_tab) if new_tab is not None
+                       else content_type == "ExternalUrl",
+        }
+        if content_type == "ExternalUrl":
+            if not url:
+                raise ValueError(
+                    "ExternalUrl module item %r has no url. Canvas has nothing "
+                    "to link to and drops the item on import, leaving no trace "
+                    "and no error." % title)
+            if resource_id is not None:
+                raise ValueError(
+                    "ExternalUrl module item %r takes url=, not resource_id= "
+                    "— the weblink resource is created for you." % title)
+            # Two separate references, and they are NOT the same id. The
+            # <organizations> item points at a Common Cartridge weblink
+            # resource; module_meta's <identifierref> points at the item's own
+            # identifier. Both spellings come straight from a real Canvas
+            # export, and the url itself is what Canvas actually imports.
+            item["org_ref"] = self._add_weblink_resource(title, url)
+            item["resource_id"] = item["id"]
+        elif url is not None:
+            raise ValueError(
+                "url= is only valid on an ExternalUrl module item, not %r"
+                % content_type)
+        mod["items"].append(item)
+
+    def _add_weblink_resource(self, title, url):
+        """Write a Common Cartridge weblink (imswl_xmlv1p1) at the zip root and
+        register it. This is what makes an external link render in the
+        cartridge viewer and any non-Canvas LMS; Canvas itself reads the <url>
+        in module_meta.xml instead, so BOTH have to be right."""
+        rid = gid()
+        (self.build / f"{rid}.xml").write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<webLink xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imswl_v1p1" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+            'xsi:schemaLocation="http://www.imsglobal.org/xsd/imsccv1p1/imswl_v1p1 '
+            'http://www.imsglobal.org/profile/cc/ccv1p1/ccv1p1_imswl_v1p1.xsd">\n'
+            f'  <title>{xesc(title)}</title>\n'
+            f'  <url href="{xesc(url, {chr(34): "&quot;"})}"/>\n'
+            '</webLink>\n')
+        self.resources.append({"id": rid, "type": "weblink",
+                               "href": f"{rid}.xml", "title": title})
+        return rid
 
     # -- XML writers -------------------------------------------------------
 
@@ -456,6 +518,12 @@ class ImsccBuilder:
         quote_map = {'"': "&quot;"}
         res_type = ("associatedcontent/imscc_xmlv1p1/learning-application-resource"
                     if r["type"] in ("assignment", "coursesettings", "syllabus") else "webcontent")
+        if r["type"] == "weblink":
+            # No href attribute on the resource element itself; a real Canvas
+            # export declares the weblink xml only as a <file> child.
+            return (f'    <resource identifier="{r["id"]}" type="imswl_xmlv1p1">\n'
+                    f'      <file href="{href}"/>\n'
+                    f'    </resource>\n')
         if r["type"] == "syllabus":
             files = f'      <file href="{href}"/>\n'
         elif r["type"] == "coursesettings":
@@ -478,8 +546,9 @@ class ImsccBuilder:
 
     def _org_item_xml(self, item, depth=1):
         indent = "  " * (depth + 2)
-        if item["resource_id"]:
-            return (f'{indent}<item identifier="{item["id"]}" identifierref="{item["resource_id"]}">\n'
+        ref = item.get("org_ref") or item["resource_id"]
+        if ref:
+            return (f'{indent}<item identifier="{item["id"]}" identifierref="{ref}">\n'
                      f'{indent}  <title>{xesc(item["title"])}</title>\n{indent}</item>\n')
         return (f'{indent}<item identifier="{item["id"]}">\n'
                 f'{indent}  <title>{xesc(item["title"])}</title>\n{indent}</item>\n')
@@ -563,8 +632,11 @@ class ImsccBuilder:
                 mm.append(f'        <title>{xesc(item["title"])}</title>\n')
                 if item["resource_id"]:
                     mm.append(f'        <identifierref>{item["resource_id"]}</identifierref>\n')
+                if item.get("url"):
+                    mm.append(f'        <url>{xesc(item["url"])}</url>\n')
                 mm.append(f'        <position>{ipos}</position>\n')
-                mm.append('        <new_tab>false</new_tab>\n')
+                mm.append('        <new_tab>%s</new_tab>\n'
+                          % ("true" if item.get("new_tab") else "false"))
                 mm.append(f'        <indent>{item["indent"]}</indent>\n')
                 mm.append('        <link_settings_json>null</link_settings_json>\n')
                 mm.append('      </item>\n')
@@ -766,8 +838,12 @@ class ImsccBuilder:
         else:
             lines.append("MISSING: none")
 
+        # A weblink resource has no href attribute of its own — its file is
+        # declared only as a <file> child — so check those separately.
         missing_files = [r.get('href') for r in root.findall('.//cc:resources/cc:resource', ns)
-                          if not (self.build / r.get('href')).exists()]
+                          if r.get('href') and not (self.build / r.get('href')).exists()]
+        missing_files += [f.get('href') for f in root.findall('.//cc:resources/cc:resource/cc:file', ns)
+                          if f.get('href') and not (self.build / f.get('href')).exists()]
         # also check assignment resources' extra_files (assignment_settings.xml),
         # which aren't the primary href and so wouldn't otherwise be checked.
         for r in self.resources:
@@ -893,6 +969,9 @@ class ImsccBuilder:
                     if f.is_file():
                         z.write(f, str(pathlib.Path(folder) / f.relative_to(base)))
             for r in self.resources:
+                if r["type"] == "weblink":
+                    z.write(self.build / r["href"], r["href"])
+                    continue
                 if r["type"] != "assignment":
                     continue
                 for rel in [r["href"], *r.get("extra_files", [])]:
@@ -901,6 +980,7 @@ class ImsccBuilder:
         ns = {'cc': 'http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1'}
         tree = ET.parse(self.build / "imsmanifest.xml")
         hrefs = {r.get('href') for r in tree.getroot().findall('.//cc:resources/cc:resource', ns)}
+        hrefs.discard(None)   # weblink resources carry no href attribute
         with zipfile.ZipFile(out_path) as z:
             names = set(z.namelist())
         missing = [h for h in hrefs if h not in names]
