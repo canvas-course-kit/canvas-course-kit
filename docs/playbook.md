@@ -308,6 +308,63 @@ Before hunting for a bug: **the Common Cartridge viewer does not render the
 Syllabus page**, so a correct package looks like it is missing one until you
 actually import it.
 
+## Pattern: published or unpublished
+
+Decide this **before** building, because it is asymmetric: content that imports
+published is visible to students the moment the import finishes, and putting
+that back is one click per page.
+
+```python
+b = ImsccBuilder("ART 232", build, published=False)   # whole package staged
+b.add_page_resource("Week 1", html, published=True)   # except this one
+mod = b.new_module("Unit 3", published=False)
+```
+
+Everything inherits the builder's default and may override it: pages,
+assignments, modules and module items.
+
+**Canvas does not spell the state consistently, and guessing gets it wrong:**
+
+| Object | Published | Unpublished |
+|---|---|---|
+| Page (`<meta name="workflow_state">`) | `active` | `unpublished` |
+| Module (`module_meta.xml`) | `active` | `unpublished` |
+| Module item (`module_meta.xml`) | `active` | `unpublished` |
+| Assignment (`assignment_settings.xml`) | **`published`** | `unpublished` |
+
+A module item defaults to the state of the **page or assignment it points at**,
+not to its module, so the two cannot silently disagree. That ordering comes from
+the exports: across three real courses, `unpublished` items on `active` pages
+occur, and `active` items on `unpublished` pages never do. An item cannot be
+more published than its content, and `validate_package` reports it as a failure
+if it is.
+
+An unpublished **module** hides everything inside it whatever the items say,
+which makes it the cheapest way to stage a unit and reveal it later.
+
+## Pattern: "Use this rubric for grading"
+
+This flag lives on the **association between a rubric and an assignment**, not
+on the rubric. That has one consequence worth knowing before you plan a build:
+
+```python
+rid = b.add_rubric("Print 1", criteria, points_possible=100.0)
+b.add_assignment_resource("Print 1", html, group,
+                          rubric_id=rid)               # ticked by default
+b.add_assignment_resource("Print 2", html, group,
+                          rubric_id=rid, rubric_use_for_grading=False)
+```
+
+**A rubrics-only package cannot carry it.** There is no assignment in the
+package, so there is no association, so every rubric has to be attached by hand
+in Canvas and the box ticked by hand. That is inherent to the shape, not a
+defect, and `validate_package` says so rather than leaving you to wonder.
+
+When the assignment and the rubric ship together, the box arrives already
+ticked. `validate_package` reports how many assignments carry a rubric and how
+many of those grade with it, so the question is answerable without unzipping
+anything.
+
 ## Pattern: external links in a module
 
 A link to something outside Canvas is a module item of type `ExternalUrl`, and

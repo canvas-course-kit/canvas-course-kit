@@ -696,6 +696,89 @@ def main():
     ok("the validator flags an external link with no url",
        any("has no <url>" in p for p in probs), str(probs))
 
+    print("\n14. Published / unpublished, and the rubric grading flag")
+
+    pb = ImsccBuilder("Staged", tmp / "staged", published=False)
+    m1 = pb.new_module("Hidden unit")
+    p_hidden = pb.add_page_resource("Week 1 notes", "<p>x</p>")
+    pb.add_item(m1, "WikiPage", "Week 1 notes", resource_id=p_hidden)
+    m2 = pb.new_module("Visible unit", published=True)
+    p_open = pb.add_page_resource("Syllabus overview", "<p>y</p>", published=True)
+    pb.add_item(m2, "WikiPage", "Syllabus overview", resource_id=p_open)
+    g_work = pb.add_assignment_group("Work", 100.0)
+    pb.add_assignment_resource("Hidden project", "<p>z</p>", g_work)
+    pb.write_manifest_and_settings()
+    got_ok, rep = pb.validate()
+    ok("a fully staged package validates", got_ok, rep.splitlines()[-1])
+    ppath, _ = pb.zip_package(tmp / "staged.imscc")
+
+    with _zf.ZipFile(ppath) as z:
+        pmeta = z.read("course_settings/module_meta.xml").decode()
+        phidden = z.read([n for n in z.namelist()
+                          if n.startswith("wiki_content/week-1")][0]).decode()
+        popen = z.read([n for n in z.namelist()
+                        if n.startswith("wiki_content/syllabus")][0]).decode()
+        pasg = z.read([n for n in z.namelist()
+                       if n.endswith("assignment_settings.xml")][0]).decode()
+    ok("published=False makes a page unpublished",
+       'content="unpublished"' in phidden)
+    ok("a per-page override beats the course default",
+       'content="active"' in popen)
+    ok("an assignment uses published/unpublished, not active",
+       "<workflow_state>unpublished</workflow_state>" in pasg)
+    ok("both module states are written",
+       pmeta.count("<workflow_state>unpublished</workflow_state>") >= 2
+       and "<workflow_state>active</workflow_state>" in pmeta)
+    # The default that prevents the accident: an item inherits from the thing it
+    # points at, so a published item can never sit on an unpublished page.
+    # A published page dropped into an UNPUBLISHED module: the item must follow
+    # the page, not the module, or the page silently never shows.
+    CCX = "{http://canvas.instructure.com/xsd/cccv1p0}"
+    p_odd = pb.add_page_resource("Handout", "<p>q</p>", published=True)
+    pb.add_item(m1, "WikiPage", "Handout", resource_id=p_odd)
+    got = pb.modules[0]["items"][-1]["published"]
+    ok("a module item follows its page, not the module", got is True, str(got))
+    states = {}
+    for mod in _ET.fromstring(pmeta):
+        holder = mod.find(CCX + "items")
+        for it in (holder if holder is not None else []):
+            states[it.findtext(CCX + "title")] = it.findtext(CCX + "workflow_state")
+    ok("an item on an unpublished page is unpublished",
+       states.get("Week 1 notes") == "unpublished", str(states))
+    ok("an item on a published page is active",
+       states.get("Syllabus overview") == "active", str(states))
+    probs = check(ppath)[0]
+    ok("a staged package has no published/unpublished complaints",
+       not any("more published" in x or "points at is not" in x for x in probs),
+       str(probs))
+    rep2 = check(ppath)[1]
+    ok("the validator reports published state",
+       any("published state:" in n for n in rep2), str(rep2)[:160])
+
+    # Default is published, and the rubric grading flag defaults to ticked.
+    rb = ImsccBuilder("Live", tmp / "live")
+    rid = rb.add_rubric("R", [("Craft", 100.0, "",
+                               [("Good", 100.0), ("Poor", 0.0)])],
+                        points_possible=100.0)
+    g2 = rb.add_assignment_group("Work", 100.0)
+    rb.add_assignment_resource("Graded project", "<p>z</p>", g2, rubric_id=rid)
+    rb.add_assignment_resource("Ungraded rubric", "<p>z</p>", g2,
+                               rubric_id=rid, rubric_use_for_grading=False)
+    rb.write_manifest_and_settings()
+    rb.zip_package(tmp / "live.imscc")
+    with _zf.ZipFile(tmp / "live.imscc") as z:
+        asgs = [z.read(n).decode() for n in z.namelist()
+                if n.endswith("assignment_settings.xml")]
+    ok("assignments default to published",
+       all("<workflow_state>published</workflow_state>" in a for a in asgs))
+    ok("use-for-grading defaults to true",
+       sum("<rubric_use_for_grading>true<" in a for a in asgs) == 1)
+    ok("use-for-grading can be turned off",
+       sum("<rubric_use_for_grading>false<" in a for a in asgs) == 1)
+    rep3 = check(tmp / "live.imscc")[1]
+    ok("the validator reports the grading flag",
+       any("use this rubric for grading" in n for n in rep3), str(rep3)[:160])
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

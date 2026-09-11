@@ -36,8 +36,9 @@ it. Otherwise build from scratch.
 
 Ask the questions listed in the `canvas-course-packaging` skill: title and code,
 weighted assignment groups and their percentages, which items must be real
-Assignments rather than Pages, timezone and any daylight-saving boundary, and
-where the source material lives. Ask them one at a time if they prefer. State an
+Assignments rather than Pages, **whether the content should import published or
+unpublished**, whether rubrics should be set to grade with, timezone and any
+daylight-saving boundary, and where the source material lives. Ask them one at a time if they prefer. State an
 assumption and keep moving rather than blocking on anything you can default.
 
 Also confirm **where the build script should live**. It belongs in the

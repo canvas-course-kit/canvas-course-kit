@@ -481,6 +481,83 @@ def check(path, personal_names=(), a11y=True):
                     "any module -- that is normal, NOT evidence they imported "
                     "as Pages" % (n_assign, in_modules, n_assign - in_modules))
 
+        # 8b. Rubric associations. "Use this rubric for grading" lives on the
+        #     ASSOCIATION between a rubric and an assignment, not on the rubric,
+        #     so it only ships when the two travel together. A rubrics-only
+        #     package carries no association at all and every rubric has to be
+        #     attached and ticked by hand in Canvas. Report it either way, so
+        #     the question "is it already ticked?" is answerable without
+        #     unzipping anything.
+        attached = graded = 0
+        for nm in sorted(n for n in names if n.endswith("/assignment_settings.xml")):
+            txt = z.read(nm).decode("utf8", "replace")
+            if "<rubric_identifierref>" in txt:
+                attached += 1
+                if re.search(r"<rubric_use_for_grading>\s*true\s*<", txt):
+                    graded += 1
+        if attached:
+            notes.append(
+                "%d of %d assignment(s) ship with a rubric attached, %d of "
+                "those set to 'use this rubric for grading'"
+                % (attached, n_assign, graded))
+        elif "course_settings/rubrics.xml" in names:
+            notes.append(
+                "rubrics ship with NO assignment association, so each one has "
+                "to be attached by hand in Canvas and 'use this rubric for "
+                "grading' ticked by hand. That is inherent to a rubrics-only "
+                "package, not a defect")
+
+        # 8c. Published state, reported rather than judged: only the instructor
+        #     knows whether this package is meant to go live on import. It is
+        #     worth seeing BEFORE importing into a course students can see.
+        #     Canvas's spellings differ by object: pages, modules and module
+        #     items use active/unpublished, assignments use published/
+        #     unpublished.
+        pub_bits = []
+        n_unpub_pages = sum(
+            1 for nm in names if nm.startswith("wiki_content/") and nm.endswith(".html")
+            and 'name="workflow_state" content="unpublished"' in
+                z.read(nm).decode("utf8", "replace"))
+        n_pages_total = sum(1 for nm in names
+                            if nm.startswith("wiki_content/") and nm.endswith(".html"))
+        if n_pages_total:
+            pub_bits.append("%d/%d page(s) unpublished" % (n_unpub_pages, n_pages_total))
+        if n_assign:
+            n_unpub_a = sum(
+                1 for nm in names if nm.endswith("/assignment_settings.xml")
+                and "<workflow_state>unpublished</workflow_state>" in
+                    z.read(nm).decode("utf8", "replace"))
+            pub_bits.append("%d/%d assignment(s) unpublished" % (n_unpub_a, n_assign))
+        if "course_settings/module_meta.xml" in names and meta_root is not None:
+            mods_unpub = sum(1 for m in meta_root
+                             if m.findtext("%sworkflow_state" % CCX) == "unpublished")
+            n_mods = len(list(meta_root))
+            if n_mods:
+                pub_bits.append("%d/%d module(s) unpublished" % (mods_unpub, n_mods))
+            # The one combination that never appears in a real export: an item
+            # more published than the thing it points at.
+            page_state = {}
+            for rid, h in re.findall(
+                    r'<resource identifier="([^"]+)"[^>]*href="(wiki_content/[^"]+)"', man):
+                h = unescape_href(h)
+                if h in names:
+                    page_state[rid] = (
+                        "unpublished" if 'content="unpublished"' in
+                        z.read(h).decode("utf8", "replace") else "active")
+            for mod in meta_root:
+                holder = mod.find("%sitems" % CCX)
+                for it in (holder if holder is not None else []):
+                    ref = it.findtext("%sidentifierref" % CCX)
+                    if (it.findtext("%sworkflow_state" % CCX) == "active"
+                            and page_state.get(ref) == "unpublished"):
+                        problems.append(
+                            "module item %r is published but the page it points "
+                            "at is not. Canvas has no such state in any real "
+                            "export; the item will not show"
+                            % (it.findtext("%stitle" % CCX) or "?"))
+        if pub_bits:
+            notes.append("published state: " + ", ".join(pub_bits))
+
         # 9. Personal data. Sweep zip ENTRY NAMES as well as file contents:
         #    a student's name can survive inside an <img alt> long after the
         #    file itself was renamed, because Canvas copies the original

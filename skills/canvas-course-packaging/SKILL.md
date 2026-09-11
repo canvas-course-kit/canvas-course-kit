@@ -53,6 +53,16 @@ can answer with a sensible default; state the assumption and keep going.
 - Does anything need to be a real **Assignment** (points, due date, gradebook
   column, submission) rather than a Page? They are different resource types and
   are not interchangeable.
+- **Published or unpublished?** Ask this every time, before building, not after.
+  Published content is visible to students the second the import finishes, and
+  if that is wrong, fixing it is one click per page. Unpublished costs one click
+  per page to reveal. Ask whether the whole package goes live, or lands hidden
+  so it can be released unit by unit. `ImsccBuilder(..., published=False)` sets
+  the default; pages, assignments, modules and items each override it.
+- **If rubrics are involved: should "Use this rubric for grading" be ticked?**
+  Usually yes, and it is the default. It only ships when the rubric and the
+  assignment travel together in the same package, so a rubrics-only package
+  cannot carry it at all.
 - What timezone, and does the term cross a daylight-saving boundary? Due dates
   need this.
 - Where do the source materials live, and are any of them large?
@@ -260,6 +270,9 @@ wrong on every day before that class happens.
 | Weighted groups import, and the gradebook still totals points | `course_settings.xml` is missing `<group_weighting_scheme>percent</group_weighting_scheme>`. Different failure from rule 2: the groups *do* arrive, they are just never applied, and every grade is quietly wrong |
 | Extra copies of pages appear in Files after import | Stale files in the build directory. `add_page_resource()` renames rather than overwrites, and whole folders are zipped. `rmtree` the build dir first |
 | The Syllabus page looks missing in the cartridge viewer | The viewer does not render it. Import and look in Canvas before hunting for a bug |
+| Imported content is immediately visible to students | It shipped published, which is the default. Decide this before building; see "Pattern: published or unpublished" |
+| An imported page stays hidden however you publish it | Its module is unpublished, which overrides the items inside it |
+| "Use this rubric for grading" is unticked after import | The package shipped rubrics without their assignments, so there was no association to carry the flag. Only a package containing both can set it |
 | A module item imported as nothing at all, with no error | An `ExternalUrl` item with no `<url>`, or a `content_type` Canvas does not recognise. Canvas drops both silently. `add_item` now refuses both; see "Pattern: external links in a module" |
 | An external link is dead in the cartridge viewer but fine in Canvas | The `imswl_xmlv1p1` weblink resource is missing. Canvas reads the `<url>` in `module_meta.xml` instead, so only non-Canvas readers notice |
 | A module or item you added never appears in Canvas | Rule 3. It went into `module_meta` but not `<organizations>` |

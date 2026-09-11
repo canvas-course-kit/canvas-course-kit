@@ -79,7 +79,7 @@ def slugify(name):
 class ImsccBuilder:
     def __init__(self, course_title, build_dir, canvas_domain="canvas.instructure.com",
                  root_account_name="Your Institution", extra_head_html="",
-                 external_assignment_groups=False):
+                 external_assignment_groups=False, published=True):
         # external_assignment_groups: this package's assignments name assignment
         # groups that already exist in the DESTINATION course, by identifier,
         # and the package deliberately ships no assignment_groups.xml. Only
@@ -96,6 +96,13 @@ class ImsccBuilder:
         # Leave this False for a normal build, where an assignment with no
         # declared group IS a bug.
         self.external_assignment_groups = external_assignment_groups
+        # Whether content ships published (visible to students) or unpublished.
+        # This is a COURSE-WIDE default that every page, assignment, module and
+        # module item inherits and may override. Decide it before building:
+        # importing published content into a live course shows it to students
+        # the moment the import finishes, and unpublishing 60 pages afterwards
+        # is one click at a time.
+        self.published = published
         self.course_title = course_title
         self.canvas_domain = canvas_domain
         self.root_account_name = root_account_name
@@ -110,19 +117,29 @@ class ImsccBuilder:
         for d in (self.wiki, self.web, self.cs):
             d.mkdir(parents=True, exist_ok=True)
 
-        self.resources = []  # [{id, type:'page'|'file', href, title}]
+        self.resources = []  # [{id, type:'page'|'file', href, title, published}]
+        # resource id -> published, so a module item can default to the state of
+        # the thing it points at rather than to the course default.
+        self.resource_published = {}
         self.modules = []    # [{id, title, items:[{id, content_type, title, resource_id, indent}]}]
 
     # -- Page / file resources ------------------------------------------------
 
-    def _page_html(self, title, body_html, ident):
+    # Canvas does not spell these consistently, and this is easy to get wrong:
+    # pages, modules and module items use active/unpublished, while assignments
+    # use published/unpublished. Both spellings are taken from real exports.
+    @staticmethod
+    def _state(published):
+        return "active" if published else "unpublished"
+
+    def _page_html(self, title, body_html, ident, published=True):
         return f"""<html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 <title>{xesc(title)}</title>
 <meta name="identifier" content="{ident}"/>
 <meta name="editing_roles" content="teachers"/>
-<meta name="workflow_state" content="active"/>
+<meta name="workflow_state" content="{self._state(published)}"/>
 {self.extra_head_html}
 </head>
 <body>
@@ -131,9 +148,10 @@ class ImsccBuilder:
 </html>
 """
 
-    def add_page_resource(self, title, body_html):
+    def add_page_resource(self, title, body_html, published=None):
         """Write a Canvas Page (wiki_content/*.html) and register it as a resource.
-        Returns the resource id to pass to add_item()."""
+        Returns the resource id to pass to add_item().
+        published: None inherits the course-wide default set on the builder."""
         rid = gid()
         slug = slugify(title)[:60] or gid()
         fname = f"{slug}.html"
@@ -143,8 +161,11 @@ class ImsccBuilder:
             n += 1
             fname = f"{slug}-{n}.html"
             target = self.wiki / fname
-        target.write_text(self._page_html(title, body_html, rid))
-        self.resources.append({"id": rid, "type": "page", "href": f"wiki_content/{fname}", "title": title})
+        pub = self.published if published is None else published
+        target.write_text(self._page_html(title, body_html, rid, pub))
+        self.resources.append({"id": rid, "type": "page", "href": f"wiki_content/{fname}",
+                               "title": title, "published": pub})
+        self.resource_published[rid] = pub
         # Remembered so page_link() can resolve links written before this
         # page existed. Two pages sharing a title cannot be told apart by a
         # link, so say so rather than silently pointing every link at one.
@@ -171,7 +192,8 @@ class ImsccBuilder:
             dest = self.build / href
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_path, dest)
-        self.resources.append({"id": rid, "type": "file", "href": href, "title": pathlib.Path(rel_path).name})
+        self.resources.append({"id": rid, "type": "file", "href": href,
+                               "title": pathlib.Path(rel_path).name})
         return rid
 
     @staticmethod
@@ -337,13 +359,21 @@ class ImsccBuilder:
 
     def add_assignment_resource(self, title, body_html, assignment_group_id,
                                  points_possible=100.0, submission_types="on_paper",
-                                 rubric_id=None, rubric_use_for_grading=True):
+                                 rubric_id=None, rubric_use_for_grading=True,
+                                 published=None):
         """Write a Canvas Assignment (folder + description HTML + assignment_settings.xml)
         and register it as a resource. Use with add_item(mod, "Assignment", ...).
         submission_types: 'on_paper' for studio work turned in physically,
         'online_upload' for anything submitted digitally (e.g. a final portfolio PDF).
-        rubric_id: an id from add_rubric(), to attach a real gradeable rubric."""
+        rubric_id: an id from add_rubric(), to attach a real gradeable rubric.
+        rubric_use_for_grading: ticks Canvas's "Use this rubric for grading" on
+        the assignment, so the rubric drives the score instead of sitting
+        alongside it as a comment. Default True, and it only takes effect when
+        the assignment and the rubric ship TOGETHER — a rubric imported on its
+        own carries no association to tick.
+        published: None inherits the course-wide default set on the builder."""
         rid = gid()
+        pub = self.published if published is None else published
         slug = slugify(title)[:60] or rid
         folder = self.build / rid
         folder.mkdir(parents=True, exist_ok=True)
@@ -366,7 +396,7 @@ class ImsccBuilder:
   <unlock_at/>
   <module_locked>false</module_locked>
   <assignment_group_identifierref>{assignment_group_id}</assignment_group_identifierref>
-  <workflow_state>published</workflow_state>
+  <workflow_state>{"published" if pub else "unpublished"}</workflow_state>
 {self._rubric_ref_xml(rubric_id, rubric_use_for_grading)}  <assignment_overrides>
   </assignment_overrides>
   <allowed_extensions></allowed_extensions>
@@ -405,8 +435,9 @@ class ImsccBuilder:
             "id": rid, "type": "assignment", "title": title,
             "href": f"{rid}/{html_name}",
             "extra_files": [f"{rid}/assignment_settings.xml"],
-            "rubric_id": rubric_id,
+            "rubric_id": rubric_id, "published": pub,
         })
+        self.resource_published[rid] = pub
         return rid
 
     @staticmethod
@@ -426,8 +457,13 @@ class ImsccBuilder:
 
     # -- Modules ---------------------------------------------------------------
 
-    def new_module(self, title):
-        mod = {"id": gid(), "title": title, "items": []}
+    def new_module(self, title, published=None):
+        """published: None inherits the course-wide default. An unpublished
+        module hides everything in it from students regardless of the state of
+        the individual items, which makes it the cheapest way to stage a whole
+        unit and reveal it later."""
+        mod = {"id": gid(), "title": title, "items": [],
+               "published": self.published if published is None else published}
         self.modules.append(mod)
         return mod
 
@@ -435,7 +471,7 @@ class ImsccBuilder:
                   "ContextModuleSubHeader")
 
     def add_item(self, mod, content_type, title, resource_id=None, indent=0,
-                 url=None, new_tab=None):
+                 url=None, new_tab=None, published=None):
         """content_type: 'WikiPage', 'Attachment', 'Assignment', 'ExternalUrl'
         or 'ContextModuleSubHeader' (a plain text divider with no resource_id,
         no click target).
@@ -444,6 +480,10 @@ class ImsccBuilder:
         url: required for, and only valid on, an 'ExternalUrl' item.
         new_tab: whether the item opens in a new tab. Defaults to True for
         ExternalUrl (matching what Canvas itself exports) and False otherwise.
+
+        published: None follows the PAGE or ASSIGNMENT this item points at, so
+        the two cannot disagree by accident, and falls back to the module's own
+        state for items with no content of their own.
 
         content_type used to be passed straight through unchecked, so a type
         Canvas does not recognise produced a well-formed item that silently
@@ -463,6 +503,9 @@ class ImsccBuilder:
             "url": url,
             "new_tab": bool(new_tab) if new_tab is not None
                        else content_type == "ExternalUrl",
+            "published": (published if published is not None
+                          else self.resource_published.get(resource_id,
+                                                           mod["published"])),
         }
         if content_type == "ExternalUrl":
             if not url:
@@ -620,7 +663,8 @@ class ImsccBuilder:
         for pos, mod in enumerate(self.modules, start=1):
             mm.append(f'  <module identifier="{mod["id"]}">\n')
             mm.append(f'    <title>{xesc(mod["title"])}</title>\n')
-            mm.append('    <workflow_state>active</workflow_state>\n')
+            mm.append('    <workflow_state>%s</workflow_state>\n'
+                      % self._state(mod["published"]))
             mm.append(f'    <position>{pos}</position>\n')
             mm.append('    <require_sequential_progress>false</require_sequential_progress>\n')
             mm.append('    <locked>false</locked>\n')
@@ -628,7 +672,8 @@ class ImsccBuilder:
             for ipos, item in enumerate(mod["items"], start=1):
                 mm.append(f'      <item identifier="{item["id"]}">\n')
                 mm.append(f'        <content_type>{item["content_type"]}</content_type>\n')
-                mm.append('        <workflow_state>active</workflow_state>\n')
+                mm.append('        <workflow_state>%s</workflow_state>\n'
+                          % self._state(item["published"]))
                 mm.append(f'        <title>{xesc(item["title"])}</title>\n')
                 if item["resource_id"]:
                     mm.append(f'        <identifierref>{item["resource_id"]}</identifierref>\n')
