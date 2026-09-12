@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/canvas-course-kit/canvas-course-kit/actions/workflows/tests.yml"><img src="https://github.com/canvas-course-kit/canvas-course-kit/actions/workflows/tests.yml/badge.svg?branch=main" alt="tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/python-3.8%2B-3776AB?logo=python&logoColor=white" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/dependencies-none-success" alt="No dependencies">

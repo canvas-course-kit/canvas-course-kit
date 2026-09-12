@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.8 is the floor the README promises; 3.12 is what most people have.
+        python-version: ["3.8", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Smoke test
+        # Builds, validates, mutates and deliberately breaks a package to prove
+        # the checks actually fire. No dependencies, by design.
+        run: PYTHONPATH=. python3 tests/smoke_test.py
+      - name: Example course builds and validates
+        run: |
+          PYTHONPATH=. python3 examples/build_example_course.py
+          PYTHONPATH=. python3 -m canvas_imscc.validate_package "/tmp/EXAMPLE 101.imscc"
