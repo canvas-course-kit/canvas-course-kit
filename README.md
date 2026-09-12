@@ -498,7 +498,8 @@ is one checkbox at a time.
 ## Quizzes
 
 Classic Quizzes, with five question types: multiple choice, true/false, essay,
-short answer and multiple answers.
+short answer and multiple answers. Confirmed by a live Canvas import on
+2026-09-12: questions, answer keys and gradebook column all arrive intact.
 
 ```python
 from canvas_imscc.quiz import multiple_choice, true_false, essay

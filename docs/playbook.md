@@ -327,6 +327,12 @@ the CC file and Canvas imports a quiz with no questions and reports no error.
 (courseforge does it the other way round and may also import; this kit follows
 what Canvas itself produces.)
 
+**Confirmed by a live import, 2026-09-12.** A package built exactly as below —
+five questions, one of each supported type, 13 points, shipped unpublished —
+imported into a real Canvas course with the questions, the answer keys and the
+gradebook column all intact. Everything above is now tested behaviour rather
+than inference from exports.
+
 ```python
 from canvas_imscc.quiz import (multiple_choice, true_false, essay,
                                short_answer, multiple_answers)
