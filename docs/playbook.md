@@ -373,20 +373,36 @@ builds them. And **the remaining six question types** (matching,
 numerical, fill-in-multiple-blanks, multiple dropdowns, file upload, text only)
 are present in the corpus but not implemented.
 
-**Getting a quiz out of Canvas: export the course, not the quiz.** Observed
-2026-09-12 on a University of Tampa course: the QTI-only export (Export Course
-Content > Quiz) produced a manifest with an **empty `<resources>` element**,
-twice, while a full course export of that same course carried the quiz complete
-with questions, answer keys and gradebook column. The cause is **not
-established**. The quiz was unpublished (`<available>false</available>`), which
-is the likeliest candidate and is untested. The instructor believed it was a New
-Quiz, but the course export contains no LTI, no `external_tool` and no
-`quizzes.next` reference anywhere, and carries it as an ordinary Classic Quiz
-with `submission_types=online_quiz` — so whatever the authoring UI said, what
-came out was Classic.
+### Getting a quiz OUT of Canvas
 
-Report this symptom the way it is written here if you hit it: an empty QTI
-export is a fact, and every explanation for it so far is a guess.
+Three routes, observed on a University of Tampa course on 2026-09-12, and they
+do not behave the same:
+
+| Route | Result |
+|---|---|
+| Settings > Export Course Content > **Quiz** | Manifest with an **empty `<resources>`**, twice. Quiz was unpublished at the time |
+| Settings > Export Course Content > **Course** | The quiz, complete |
+| **New Quizzes Build menu > Export** | The quiz, complete, and the cleanest form of it |
+
+**The New Quizzes Build-menu export is worth knowing about.** It yields a tiny
+three-file package — manifest, `<id>/<id>.xml`, `<id>/assessment_meta.xml` —
+whose QTI is **byte-identical** (apart from resource ids) to what a full course
+export writes into `non_cc_assessments/<id>.xml.qti`. Its manifest uses
+`type="imsqti_xmlv1p2"` paired to the meta resource by `<dependency>`, the same
+two-resource shape described above. If you want to read real question XML
+without unpacking a 140 MB course export, this is the way.
+
+**A quiz authored in New Quizzes exported as ordinary Classic QTI 1.2 here.**
+Same `question_type` metadata fields, same structure, and the course export
+carries it with `submission_types=online_quiz` and no LTI, no `external_tool`
+and no `quizzes.next` reference anywhere in the package. Do not assume the
+authoring engine determines the export format; check the artifact.
+
+**The empty export is still unexplained.** The same generator produced the empty
+manifest and the full one, so it is not a New Quizzes / Classic distinction.
+Two things differed between the runs — the quiz was unpublished for the first
+and published for the second, and the route was different — so neither has been
+isolated. Report the symptom, not a cause.
 
 **An empty quiz is not necessarily a bug.** Instructure's own summer template
 ships eleven quizzes with no questions, as shells for the instructor to fill,

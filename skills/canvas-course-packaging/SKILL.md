@@ -276,7 +276,7 @@ wrong on every day before that class happens.
 | Extra copies of pages appear in Files after import | Stale files in the build directory. `add_page_resource()` renames rather than overwrites, and whole folders are zipped. `rmtree` the build dir first |
 | The Syllabus page looks missing in the cartridge viewer | The viewer does not render it. Import and look in Canvas before hunting for a bug |
 | A quiz imports with no questions in it | The questions went into `<id>/assessment_qti.xml`. Canvas leaves that file empty and reads `non_cc_assessments/<id>.xml.qti` instead |
-| A QTI quiz export downloads with an empty `<resources>` element | Cause unknown; seen on an unpublished quiz. Export the whole COURSE instead, which has carried the same quiz complete |
+| A QTI quiz export downloads with an empty `<resources>` element | Cause unknown. Use a full course export, or the New Quizzes Build menu's own Export, both of which have carried the same quiz complete |
 | A quiz imports but has no gradebook column | `quiz_type` is not `assignment`, or `assessment_meta.xml` has no nested `<assignment>` block |
 | Imported content is immediately visible to students | It shipped published, which is the default. Decide this before building; see "Pattern: published or unpublished" |
 | An imported page stays hidden however you publish it | Its module is unpublished, which overrides the items inside it |

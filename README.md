@@ -514,12 +514,12 @@ qid = b.add_quiz("Studio Safety", [
 b.add_item(mod, "Quizzes::Quiz", "Studio Safety", resource_id=qid)
 ```
 
-**Getting a quiz OUT of Canvas: export the whole course, not the quiz.** The
-QTI-only export (Export Course Content > Quiz) has been seen returning a
-manifest with an empty `<resources>` element while a full course export of the
-same course carried the quiz complete. Cause not established; the quiz in
-question was unpublished, which is the likeliest candidate. Either way the
-course export is the reliable one.
+**Getting a quiz OUT of Canvas**, to read real question XML: a full course
+export always works, and the **New Quizzes Build menu has its own Export** that
+gives you a three-file package whose QTI is byte-identical to what the course
+export buries in `non_cc_assessments/`. The standalone Export Course Content >
+Quiz route has been seen returning an empty manifest; cause not established.
+See [the playbook](docs/playbook.md#getting-a-quiz-out-of-canvas).
 
 **The one thing to know about the format**, because getting it backwards gives
 you an empty quiz with no error message: Canvas writes each quiz twice. The
