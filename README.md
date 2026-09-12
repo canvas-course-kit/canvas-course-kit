@@ -483,8 +483,7 @@ accept if it were built.
   only). Classic quizzes themselves *are* supported: see
   [Quizzes](#quizzes) below.
 - **New Quizzes.** A different, LTI-based format. Everything here is Classic
-  Quizzes. A QTI-only export of a New Quizzes course comes back with an empty
-  `<resources>` element, which looks like a broken export and is not.
+  Quizzes.
 - **LTI tools, discussions, announcements, and peer review.**
   ([courseforge](https://github.com/jasp-nerd/courseforge) writes discussions
   and announcements, if you need them.)
@@ -513,6 +512,13 @@ qid = b.add_quiz("Studio Safety", [
 ], assignment_group_id=g)
 b.add_item(mod, "Quizzes::Quiz", "Studio Safety", resource_id=qid)
 ```
+
+**Getting a quiz OUT of Canvas: export the whole course, not the quiz.** The
+QTI-only export (Export Course Content > Quiz) has been seen returning a
+manifest with an empty `<resources>` element while a full course export of the
+same course carried the quiz complete. Cause not established; the quiz in
+question was unpublished, which is the likeliest candidate. Either way the
+course export is the reliable one.
 
 **The one thing to know about the format**, because getting it backwards gives
 you an empty quiz with no error message: Canvas writes each quiz twice. The

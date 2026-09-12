@@ -362,12 +362,25 @@ with a `<not>` around each wrong choice.
 here in a form worth copying; where they exist, the questions sit in extra
 `non_cc_assessments/*.xml.qti` files belonging to no declared quiz, and
 `validate_package` reports them rather than pretending to understand them.
-**New Quizzes** are a different, LTI-based thing entirely: a QTI-only export of
-a course whose quizzes are New Quizzes comes back with an empty `<resources>`
-element, which looks exactly like a broken export and is the first thing to
-check if that happens. And **the remaining six question types** (matching,
+**New Quizzes** are a different, LTI-based thing entirely, and nothing here
+builds them. And **the remaining six question types** (matching,
 numerical, fill-in-multiple-blanks, multiple dropdowns, file upload, text only)
 are present in the corpus but not implemented.
+
+**Getting a quiz out of Canvas: export the course, not the quiz.** Observed
+2026-09-12 on a University of Tampa course: the QTI-only export (Export Course
+Content > Quiz) produced a manifest with an **empty `<resources>` element**,
+twice, while a full course export of that same course carried the quiz complete
+with questions, answer keys and gradebook column. The cause is **not
+established**. The quiz was unpublished (`<available>false</available>`), which
+is the likeliest candidate and is untested. The instructor believed it was a New
+Quiz, but the course export contains no LTI, no `external_tool` and no
+`quizzes.next` reference anywhere, and carries it as an ordinary Classic Quiz
+with `submission_types=online_quiz` — so whatever the authoring UI said, what
+came out was Classic.
+
+Report this symptom the way it is written here if you hit it: an empty QTI
+export is a fact, and every explanation for it so far is a guess.
 
 **An empty quiz is not necessarily a bug.** Instructure's own summer template
 ships eleven quizzes with no questions, as shells for the instructor to fill,
