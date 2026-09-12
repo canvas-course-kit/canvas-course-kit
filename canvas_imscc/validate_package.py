@@ -558,6 +558,87 @@ def check(path, personal_names=(), a11y=True):
         if pub_bits:
             notes.append("published state: " + ", ".join(pub_bits))
 
+        # 8d. Quizzes. A Canvas export writes each quiz twice: an empty CC
+        #     shell at <rid>/assessment_qti.xml and the real questions at
+        #     non_cc_assessments/<rid>.xml.qti. Ship only the shell and Canvas
+        #     imports a quiz with no questions and says nothing, which is the
+        #     single easiest way to get this format wrong.
+        quiz_ids = re.findall(
+            r'<resource identifier="([^"]+)" type="imsqti_xmlv1p2/imscc_xmlv1p1/assessment"', man)
+        n_questions = 0
+        empty = []
+        for qid in quiz_ids:
+            cc_name = "%s/assessment_qti.xml" % qid
+            nc_name = "non_cc_assessments/%s.xml.qti" % qid
+            title = qid
+            if cc_name in names:
+                cc = z.read(cc_name).decode("utf8", "replace")
+                m = re.search(r'<assessment[^>]*title="([^"]*)"', cc)
+                if m:
+                    title = m.group(1)
+                cc_items = cc.count("<item ")
+            else:
+                cc_items = 0
+                problems.append("quiz %s declares %s but it is not in the package"
+                                % (title, cc_name))
+            if nc_name in names:
+                nc = z.read(nc_name).decode("utf8", "replace")
+                nc_items = nc.count("<item ")
+                n_questions += nc_items
+                if nc_items == 0 and cc_items == 0:
+                    # A NOTE, not a failure. Instructure's own summer template
+                    # ships 11 quizzes exactly like this: deliberate empty
+                    # shells for the instructor to fill, with the questions in
+                    # separate question-bank files. Failing that export would
+                    # be failing correct work.
+                    empty.append(title)
+            elif cc_items:
+                notes.append(
+                    "quiz %r keeps its questions in the CC assessment_qti.xml "
+                    "and ships no non_cc_assessments file. Canvas's own exports "
+                    "do the opposite; this may still import, but it is not the "
+                    "shape Canvas produces" % title)
+                n_questions += cc_items
+            else:
+                empty.append(title)
+
+            meta_name = "%s/assessment_meta.xml" % qid
+            if meta_name not in names:
+                problems.append("quiz %r has no assessment_meta.xml, so it has "
+                                "no title, points or settings" % title)
+            else:
+                meta = z.read(meta_name).decode("utf8", "replace")
+                qt = re.search(r"<quiz_type>([^<]+)</quiz_type>", meta)
+                qt = qt.group(1) if qt else "?"
+                if (qt in ("assignment", "graded_survey")
+                        and "<assignment_group_identifierref>" not in meta):
+                    notes.append(
+                        "quiz %r is graded (%s) but names no assignment group, "
+                        "so Canvas picks one and any weighted gradebook is "
+                        "wrong" % (title, qt))
+        if quiz_ids:
+            notes.append("%d quiz/quizzes carrying %d question(s)"
+                         % (len(quiz_ids), n_questions))
+            if empty:
+                notes.append(
+                    "%d quiz/quizzes have NO questions and will import empty: "
+                    "%s. Deliberate in a template course, a bug anywhere else, "
+                    "so this is reported and not failed"
+                    % (len(empty), ", ".join(repr(t) for t in empty[:4])
+                       + (" ..." if len(empty) > 4 else "")))
+            banks = [n for n in names
+                     if n.startswith("non_cc_assessments/")
+                     and n.endswith(".xml.qti")
+                     and n[len("non_cc_assessments/"):-len(".xml.qti")] not in quiz_ids]
+            if banks:
+                total = sum(z.read(n).decode("utf8", "replace").count("<item ")
+                            for n in banks)
+                notes.append(
+                    "%d non_cc_assessments file(s) carrying %d question(s) belong "
+                    "to no declared quiz: almost certainly QUESTION BANKS, which "
+                    "this kit does not build and cannot check"
+                    % (len(banks), total))
+
         # 9. Personal data. Sweep zip ENTRY NAMES as well as file contents:
         #    a student's name can survive inside an <img alt> long after the
         #    file itself was renamed, because Canvas copies the original

@@ -779,6 +779,93 @@ def main():
     ok("the validator reports the grading flag",
        any("use this rubric for grading" in n for n in rep3), str(rep3)[:160])
 
+    print("\n15. Classic quizzes")
+
+    from canvas_imscc.quiz import (multiple_choice, true_false, essay,
+                                   short_answer, multiple_answers)
+
+    qb = ImsccBuilder("Quizzes", tmp / "quizbuild")
+    qg = qb.add_assignment_group("Quizzes", 100.0)
+    QS = [
+        multiple_choice("<p>Which?</p>", [("<p>a</p>", True), ("<p>b</p>", False)], points=2),
+        true_false("<p>True?</p>", True),
+        essay("<p>Discuss.</p>", points=5),
+        short_answer("<p>Fill ___</p>", ["burnisher", "Burnisher"]),
+        multiple_answers("<p>All that apply</p>",
+                         [("<p>x</p>", True), ("<p>y</p>", True), ("<p>z</p>", False)], points=3),
+    ]
+    quiz_id = qb.add_quiz("Safety Quiz", QS, assignment_group_id=qg)
+    qm = qb.new_module("Unit 1")
+    qb.add_item(qm, "Quizzes::Quiz", "Safety Quiz", resource_id=quiz_id)
+    qb.write_manifest_and_settings()
+    got_ok, rep = qb.validate()
+    ok("a quiz package validates", got_ok, rep.splitlines()[-1])
+    qpath, _ = qb.zip_package(tmp / "quiz.imscc")
+
+    with _zf.ZipFile(qpath) as z:
+        qnames = z.namelist()
+        qman = z.read("imsmanifest.xml").decode()
+        cc = z.read("%s/assessment_qti.xml" % quiz_id).decode()
+        nc = z.read("non_cc_assessments/%s.xml.qti" % quiz_id).decode()
+        qmeta = z.read("%s/assessment_meta.xml" % quiz_id).decode()
+
+    ok("all three quiz files are in the zip",
+       all(n in qnames for n in ("%s/assessment_qti.xml" % quiz_id,
+                                 "%s/assessment_meta.xml" % quiz_id,
+                                 "non_cc_assessments/%s.xml.qti" % quiz_id)))
+    # The one that bites: questions go in the non-CC file, and the CC file is
+    # an empty shell. Backwards means an empty quiz and no error from Canvas.
+    ok("the CC assessment is an empty shell", cc.count("<item ") == 0)
+    ok("the non-CC file carries every question", nc.count("<item ") == 5)
+    for qt in ("multiple_choice_question", "true_false_question", "essay_question",
+               "short_answer_question", "multiple_answers_question"):
+        ok("non-CC file has a %s" % qt, qt in nc)
+    ok("every quiz file is well-formed XML",
+       all(_ET.fromstring(x) is not None for x in (cc, nc, qmeta)))
+    ok("the manifest emits <dependency>", "<dependency identifierref=" in qman)
+    ok("the quiz declares the qti resource type",
+       'type="imsqti_xmlv1p2/imscc_xmlv1p1/assessment"' in qman)
+    ok("a graded quiz carries a nested <assignment> for its gradebook column",
+       "<submission_types>online_quiz</submission_types>" in qmeta)
+    ok("points default to the sum of the questions",
+       "<points_possible>12.0</points_possible>" in qmeta, qmeta[qmeta.find("<points_possible>"):][:40])
+    ok("the external validator passes a quiz package",
+       check(qpath)[0] == [], str(check(qpath)[0]))
+    ok("the validator counts the questions",
+       any("carrying 5 question" in n for n in check(qpath)[1]), str(check(qpath)[1])[:120])
+
+    # Scoring shapes, checked rather than assumed.
+    ok("multiple choice scores one varequal",
+       nc.count('<setvar action="Set" varname="SCORE">100</setvar>') == 4,
+       "essay has no setvar, the other four do")
+    ok("multiple answers negates every wrong choice", "<not>" in nc)
+    ok("short answer accepts both spellings",
+       nc.count("<varequal respident=\"response1\">burnisher</varequal>") == 1
+       and "Burnisher</varequal>" in nc)
+
+    # And the input guards.
+    for bad, why in (
+        (lambda: multiple_choice("<p>q</p>", [("a", True), ("b", True)]), "two correct"),
+        (lambda: multiple_choice("<p>q</p>", [("a", False), ("b", False)]), "none correct"),
+        (lambda: short_answer("<p>q</p>", []), "no accepted answers"),
+        (lambda: multiple_answers("<p>q</p>", [("a", False), ("b", False)]), "none correct"),
+        (lambda: true_false("<p>q</p>", "yes"), "non-boolean"),
+    ):
+        try:
+            bad(); ok("rejects %s" % why, False)
+        except ValueError:
+            ok("rejects %s" % why, True)
+
+    qb2 = ImsccBuilder("Q2", tmp / "quizbuild2")
+    try:
+        qb2.add_quiz("Graded", [essay("<p>x</p>")])
+        ok("a graded quiz with no assignment group is rejected", False)
+    except ValueError as e:
+        ok("a graded quiz with no assignment group is rejected",
+           "assignment_group_id" in str(e))
+    ok("an ungraded practice quiz needs no group",
+       bool(qb2.add_quiz("Practice", [essay("<p>x</p>")], quiz_type="practice_quiz")))
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

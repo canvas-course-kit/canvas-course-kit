@@ -415,9 +415,11 @@ should take it. This kit exists for institutions that have turned personal
 access tokens off, where the hand-import is the only way in.
 
 It is worth reading anyway. Its `docs/imscc-format.md` covers the same ground as
-this README and agrees with it, and it does two things this kit does not: real
-QTI 1.2 quiz generation for eight question types, and discussions and
-announcements. It is also the source of the orphan-file check below. Two gaps
+this README and agrees with it, and it does one thing this kit does not:
+discussions and announcements. Both kits now write QTI quizzes, but not the same
+way, and the difference is worth knowing: courseforge puts the questions in
+`assessment_qti.xml`, while Canvas's own exports leave that file empty and put
+the questions in `non_cc_assessments/<id>.xml.qti`. This kit follows Canvas. It is also the source of the orphan-file check below. Two gaps
 to know about if you go that way: rubrics are an empty stub in its builder and
 still on its roadmap, and it does not set `group_weighting_scheme`, so weighted
 gradebooks import and are silently ignored — the same bug this kit shipped
@@ -476,8 +478,13 @@ that corpus before you trust a new check.
 Not limitations of the format, just of this kit. Each is a package Canvas would
 accept if it were built.
 
-- **Quizzes and question banks.** QTI is a separate format inside the cartridge
-  and nothing here writes it.
+- **Question banks**, and six of the eleven quiz question types (matching,
+  numerical, fill-in-multiple-blanks, multiple dropdowns, file upload, text
+  only). Classic quizzes themselves *are* supported: see
+  [Quizzes](#quizzes) below.
+- **New Quizzes.** A different, LTI-based format. Everything here is Classic
+  Quizzes. A QTI-only export of a New Quizzes course comes back with an empty
+  `<resources>` element, which looks like a broken export and is not.
 - **LTI tools, discussions, announcements, and peer review.**
   ([courseforge](https://github.com/jasp-nerd/courseforge) writes discussions
   and announcements, if you need them.)
@@ -488,6 +495,32 @@ And one thing no package can do, which matters more than any of the above:
 **Canvas cannot update an existing page or assignment on import.** It only
 adds. A second import of the same package duplicates everything, and undoing it
 is one checkbox at a time.
+
+## Quizzes
+
+Classic Quizzes, with five question types: multiple choice, true/false, essay,
+short answer and multiple answers.
+
+```python
+from canvas_imscc.quiz import multiple_choice, true_false, essay
+
+g = b.add_assignment_group("Quizzes", 20.0)
+qid = b.add_quiz("Studio Safety", [
+    multiple_choice("<p>Which acid bites copper?</p>",
+                    [("<p>Ferric chloride</p>", True), ("<p>Water</p>", False)]),
+    true_false("<p>Hard ground resists acid.</p>", True),
+    essay("<p>Describe your plate preparation.</p>", points=5),
+], assignment_group_id=g)
+b.add_item(mod, "Quizzes::Quiz", "Studio Safety", resource_id=qid)
+```
+
+**The one thing to know about the format**, because getting it backwards gives
+you an empty quiz with no error message: Canvas writes each quiz twice. The
+Common Cartridge file `<id>/assessment_qti.xml` is an empty shell, and the
+questions live in `non_cc_assessments/<id>.xml.qti`. Every shape here was
+derived from real Canvas exports rather than from the QTI spec, and the
+generated XML is structurally identical to what Canvas produces for the same
+question types. See [the playbook](docs/playbook.md) for the full pattern.
 
 ## Reporting a Canvas behaviour that does not match these docs
 

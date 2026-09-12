@@ -455,6 +455,189 @@ class ImsccBuilder:
             f"  <rubric_hide_score_total>false</rubric_hide_score_total>\n"
         )
 
+    # -- Quizzes ---------------------------------------------------------------
+
+    def add_quiz(self, title, questions, description="", quiz_type="assignment",
+                 assignment_group_id=None, points_possible=None,
+                 allowed_attempts=1, shuffle_answers=False,
+                 show_correct_answers=False, scoring_policy="keep_highest",
+                 one_question_at_a_time=False, published=None):
+        """Write a Canvas Classic Quiz and register it. Returns the resource id
+        to pass to add_item(mod, "Quizzes::Quiz", ...).
+
+        questions: a list from canvas_imscc.quiz -- multiple_choice(),
+        true_false(), essay(), short_answer(), multiple_answers().
+
+        quiz_type: "assignment" for a graded quiz with a gradebook column (then
+        assignment_group_id is required, exactly as for an assignment),
+        "practice_quiz" for ungraded practice, "survey" or "graded_survey".
+
+        points_possible defaults to the sum of the questions' points.
+
+        THREE files are written, because that is what Canvas exports:
+        <rid>/assessment_qti.xml (CC profile, deliberately EMPTY of questions),
+        <rid>/assessment_meta.xml (the settings), and
+        non_cc_assessments/<rid>.xml.qti (the questions Canvas actually reads).
+        See canvas_imscc/quiz.py for why.
+        """
+        from . import quiz as _q
+
+        if quiz_type not in ("assignment", "practice_quiz", "survey", "graded_survey"):
+            raise ValueError("unknown quiz_type: %r" % quiz_type)
+        graded = quiz_type in ("assignment", "graded_survey")
+        if graded and not assignment_group_id and not self.external_assignment_groups:
+            raise ValueError(
+                "quiz %r is graded (quiz_type=%r) so it needs an "
+                "assignment_group_id, or Canvas drops it into a group of its "
+                "own choosing and the gradebook weighting is wrong."
+                % (title, quiz_type))
+        if not questions:
+            raise ValueError("quiz %r has no questions" % title)
+        for q in questions:
+            if q.get("type") not in _q.QUESTION_TYPES:
+                raise ValueError(
+                    "quiz %r has a question of unsupported type %r. Build "
+                    "questions with the constructors in canvas_imscc.quiz."
+                    % (title, q.get("type")))
+
+        rid = gid()
+        meta_rid = gid()
+        pub = self.published if published is None else published
+        total = (sum(q["points"] for q in questions)
+                 if points_possible is None else float(points_possible))
+
+        folder = self.build / rid
+        folder.mkdir(parents=True, exist_ok=True)
+        (self.build / "non_cc_assessments").mkdir(parents=True, exist_ok=True)
+
+        # -- the CC shell. Questions deliberately absent; see quiz.py.
+        (folder / "assessment_qti.xml").write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<questestinterop xmlns="http://www.imsglobal.org/xsd/ims_qtiasiv1p2" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+            'xsi:schemaLocation="http://www.imsglobal.org/xsd/ims_qtiasiv1p2 '
+            'http://www.imsglobal.org/profile/cc/ccv1p1/ccv1p1_qtiasiv1p2p1_v1p0.xsd">\n'
+            f'  <assessment ident="{rid}" title="{xesc(title)}">\n'
+            '    <qtimetadata>\n'
+            + "".join(
+                '      <qtimetadatafield>\n'
+                f'        <fieldlabel>{lab}</fieldlabel>\n'
+                f'        <fieldentry>{val}</fieldentry>\n'
+                '      </qtimetadatafield>\n'
+                for lab, val in (("cc_profile", "cc.exam.v0p1"),
+                                 ("qmd_assessmenttype", "Examination"),
+                                 ("qmd_scoretype", "Percentage"),
+                                 ("cc_maxattempts",
+                                  "unlimited" if allowed_attempts in (-1, None)
+                                  else str(allowed_attempts))))
+            + '    </qtimetadata>\n'
+            '    <section ident="root_section"/>\n'
+            '  </assessment>\n'
+            '</questestinterop>\n')
+
+        # -- the real one: every question lives here.
+        items = "".join(_q._item_xml(q, gid(), q.get("title") or "Question")
+                        for q in questions)
+        (self.build / "non_cc_assessments" / f"{rid}.xml.qti").write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<questestinterop xmlns="http://www.imsglobal.org/xsd/ims_qtiasiv1p2" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+            'xsi:schemaLocation="http://www.imsglobal.org/xsd/ims_qtiasiv1p2 '
+            'http://www.imsglobal.org/xsd/ims_qtiasiv1p2p1.xsd">\n'
+            f'  <assessment ident="{rid}" title="{xesc(title)}">\n'
+            '    <qtimetadata>\n'
+            '      <qtimetadatafield>\n'
+            '        <fieldlabel>cc_maxattempts</fieldlabel>\n'
+            f'        <fieldentry>{"unlimited" if allowed_attempts in (-1, None) else allowed_attempts}</fieldentry>\n'
+            '      </qtimetadatafield>\n'
+            '    </qtimetadata>\n'
+            '    <section ident="root_section">\n'
+            f'{items}'
+            '    </section>\n'
+            '  </assessment>\n'
+            '</questestinterop>\n')
+
+        # -- settings, plus the nested <assignment> that gives a graded quiz its
+        #    gradebook column. Michael's UT export carries that block; an older
+        #    export in the corpus does not, so it is written only when graded.
+        group_xml = (f"  <assignment_group_identifierref>{assignment_group_id}"
+                     f"</assignment_group_identifierref>\n"
+                     if assignment_group_id else "")
+        assignment_block = ""
+        if graded:
+            assignment_block = f"""  <assignment identifier="{gid()}">
+    <title>{xesc(title)}</title>
+    <due_at/>
+    <lock_at/>
+    <unlock_at/>
+    <module_locked>false</module_locked>
+    <workflow_state>{"published" if pub else "unpublished"}</workflow_state>
+    <assignment_overrides/>
+    <quiz_identifierref>{rid}</quiz_identifierref>
+    <has_group_category>false</has_group_category>
+    <points_possible>{total}</points_possible>
+    <grading_type>points</grading_type>
+    <all_day>false</all_day>
+    <submission_types>online_quiz</submission_types>
+    <position>1</position>
+    <peer_reviews>false</peer_reviews>
+    <omit_from_final_grade>false</omit_from_final_grade>
+    <only_visible_to_overrides>false</only_visible_to_overrides>
+    <post_to_sis>false</post_to_sis>
+    <moderated_grading>false</moderated_grading>
+    <anonymous_grading>false</anonymous_grading>
+    <post_policy>
+      <post_manually>false</post_manually>
+    </post_policy>
+{group_xml.replace("  <", "    <")}  </assignment>
+"""
+        (folder / "assessment_meta.xml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<quiz identifier="{rid}" xmlns="http://canvas.instructure.com/xsd/cccv1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://canvas.instructure.com/xsd/cccv1p0 http://canvas.instructure.com/xsd/cccv1p0.xsd">
+  <title>{xesc(title)}</title>
+  <description>{xesc(description)}</description>
+  <due_at/>
+  <lock_at/>
+  <unlock_at/>
+  <shuffle_questions>false</shuffle_questions>
+  <shuffle_answers>{str(bool(shuffle_answers)).lower()}</shuffle_answers>
+  <scoring_policy>{scoring_policy}</scoring_policy>
+  <hide_results/>
+  <quiz_type>{quiz_type}</quiz_type>
+  <points_possible>{total}</points_possible>
+  <require_lockdown_browser>false</require_lockdown_browser>
+  <require_lockdown_browser_for_results>false</require_lockdown_browser_for_results>
+  <lockdown_browser_monitor_data/>
+  <show_correct_answers>{str(bool(show_correct_answers)).lower()}</show_correct_answers>
+  <anonymous_submissions>false</anonymous_submissions>
+  <could_be_locked>false</could_be_locked>
+  <allowed_attempts>{allowed_attempts}</allowed_attempts>
+  <one_question_at_a_time>{str(bool(one_question_at_a_time)).lower()}</one_question_at_a_time>
+  <cant_go_back>false</cant_go_back>
+  <available>{str(bool(pub)).lower()}</available>
+  <one_time_results>false</one_time_results>
+  <show_correct_answers_last_attempt>false</show_correct_answers_last_attempt>
+  <only_visible_to_overrides>false</only_visible_to_overrides>
+  <module_locked>false</module_locked>
+{group_xml}{assignment_block}</quiz>
+""")
+
+        self.resources.append({
+            "id": rid, "type": "quiz_qti", "title": title,
+            "href": f"{rid}/assessment_qti.xml", "dependency": meta_rid,
+            "published": pub,
+        })
+        self.resources.append({
+            "id": meta_rid, "type": "quiz_meta", "title": title,
+            "href": f"{rid}/assessment_meta.xml",
+            "extra_files": [f"non_cc_assessments/{rid}.xml.qti"],
+        })
+        self.resource_published[rid] = pub
+        if not hasattr(self, "quizzes"):
+            self.quizzes = []
+        self.quizzes.append({"id": rid, "title": title, "questions": questions,
+                             "points": total, "quiz_type": quiz_type})
+        return rid
+
     # -- Modules ---------------------------------------------------------------
 
     def new_module(self, title, published=None):
@@ -468,7 +651,7 @@ class ImsccBuilder:
         return mod
 
     ITEM_TYPES = ("WikiPage", "Attachment", "Assignment", "ExternalUrl",
-                  "ContextModuleSubHeader")
+                  "Quizzes::Quiz", "ContextModuleSubHeader")
 
     def add_item(self, mod, content_type, title, resource_id=None, indent=0,
                  url=None, new_tab=None, published=None):
@@ -561,6 +744,24 @@ class ImsccBuilder:
         quote_map = {'"': "&quot;"}
         res_type = ("associatedcontent/imscc_xmlv1p1/learning-application-resource"
                     if r["type"] in ("assignment", "coursesettings", "syllabus") else "webcontent")
+        if r["type"] == "quiz_qti":
+            # The CC-profile half. Carries no href attribute, and points at its
+            # partner resource with <dependency> -- the only place in a Canvas
+            # export where one resource references another.
+            return (f'    <resource identifier="{r["id"]}" type="imsqti_xmlv1p2/imscc_xmlv1p1/assessment">\n'
+                    f'      <file href="{href}"/>\n'
+                    f'      <dependency identifierref="{r["dependency"]}"/>\n'
+                    f'    </resource>\n')
+        if r["type"] == "quiz_meta":
+            # The Canvas half: assessment_meta.xml plus the non-CC QTI that
+            # actually holds the questions.
+            return (f'    <resource identifier="{r["id"]}" '
+                    f'type="associatedcontent/imscc_xmlv1p1/learning-application-resource" '
+                    f'href="{href}">\n'
+                    f'      <file href="{href}"/>\n'
+                    + "".join(f'      <file href="{xesc(f, quote_map)}"/>\n'
+                              for f in r.get("extra_files", []))
+                    + '    </resource>\n')
         if r["type"] == "weblink":
             # No href attribute on the resource element itself; a real Canvas
             # export declares the weblink xml only as a <file> child.
@@ -1008,7 +1209,8 @@ class ImsccBuilder:
             out_path.unlink()
         with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as z:
             z.write(self.build / "imsmanifest.xml", "imsmanifest.xml")
-            for folder in ("wiki_content", "web_resources", "course_settings"):
+            for folder in ("wiki_content", "web_resources", "course_settings",
+                           "non_cc_assessments"):
                 base = self.build / folder
                 for f in base.rglob("*"):
                     if f.is_file():
@@ -1016,6 +1218,14 @@ class ImsccBuilder:
             for r in self.resources:
                 if r["type"] == "weblink":
                     z.write(self.build / r["href"], r["href"])
+                    continue
+                if r["type"] == "quiz_qti":
+                    z.write(self.build / r["href"], r["href"])
+                    continue
+                if r["type"] == "quiz_meta":
+                    for rel in [r["href"], *r.get("extra_files", [])]:
+                        if not rel.startswith("non_cc_assessments/"):
+                            z.write(self.build / rel, rel)   # folder loop has the rest
                     continue
                 if r["type"] != "assignment":
                     continue

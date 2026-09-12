@@ -308,6 +308,72 @@ Before hunting for a bug: **the Common Cartridge viewer does not render the
 Syllabus page**, so a correct package looks like it is missing one until you
 actually import it.
 
+## Pattern: quizzes
+
+A Canvas Classic Quiz is **four** pieces, and the shape is not what you would
+guess:
+
+| Path | What it holds |
+|---|---|
+| `<rid>/assessment_qti.xml` | Common Cartridge profile. Its `<section>` is **empty** |
+| `non_cc_assessments/<rid>.xml.qti` | Canvas's own QTI. **The questions live here** |
+| `<rid>/assessment_meta.xml` | Title, points, quiz type, attempts, assignment group |
+| `imsmanifest.xml` | **Two** resources joined by a `<dependency>` element |
+
+**The CC file is a compatibility shell with no questions in it.** Three real
+exports agree: Michael Diaz's University of Tampa export (0 items in the CC
+file, 3 in the non-CC one) and both corpus exports. Write the questions into
+the CC file and Canvas imports a quiz with no questions and reports no error.
+(courseforge does it the other way round and may also import; this kit follows
+what Canvas itself produces.)
+
+```python
+from canvas_imscc.quiz import (multiple_choice, true_false, essay,
+                               short_answer, multiple_answers)
+
+g = b.add_assignment_group("Quizzes", 20.0)
+qid = b.add_quiz("Studio Safety", [
+    multiple_choice("<p>Which acid bites copper?</p>",
+                    [("<p>Ferric chloride</p>", True), ("<p>Water</p>", False)], points=2),
+    true_false("<p>Hard ground resists acid.</p>", True),
+    essay("<p>Describe your plate preparation.</p>", points=5),
+    short_answer("<p>The tool that scrapes a burr is a _____.</p>",
+                 ["burnisher", "Burnisher"]),
+    multiple_answers("<p>Select every intaglio process.</p>",
+                     [("<p>Etching</p>", True), ("<p>Drypoint</p>", True),
+                      ("<p>Lithography</p>", False)], points=3),
+], assignment_group_id=g)
+b.add_item(mod, "Quizzes::Quiz", "Studio Safety", resource_id=qid)
+```
+
+Points default to the sum of the questions. A **graded** quiz
+(`quiz_type="assignment"`, the default) needs an assignment group exactly as an
+assignment does, and gets a nested `<assignment>` block inside
+`assessment_meta.xml` carrying `submission_types=online_quiz`; that block is
+what gives it a gradebook column. `quiz_type="practice_quiz"` needs no group.
+
+Answer matching is worth knowing: `short_answer` compares **case-sensitively**,
+as separate `<varequal>` entries, which is why the real exports list both
+`Programmers` and `programmers`. `multiple_answers` is scored all-or-nothing,
+every correct box ticked and every wrong one clear, expressed as one `<and>`
+with a `<not>` around each wrong choice.
+
+**Three things this does not cover.** **Question banks** appear in no export
+here in a form worth copying; where they exist, the questions sit in extra
+`non_cc_assessments/*.xml.qti` files belonging to no declared quiz, and
+`validate_package` reports them rather than pretending to understand them.
+**New Quizzes** are a different, LTI-based thing entirely: a QTI-only export of
+a course whose quizzes are New Quizzes comes back with an empty `<resources>`
+element, which looks exactly like a broken export and is the first thing to
+check if that happens. And **the remaining six question types** (matching,
+numerical, fill-in-multiple-blanks, multiple dropdowns, file upload, text only)
+are present in the corpus but not implemented.
+
+**An empty quiz is not necessarily a bug.** Instructure's own summer template
+ships eleven quizzes with no questions, as shells for the instructor to fill,
+with the real questions in separate question banks. `validate_package` reports
+empty quizzes as a note and does not fail them.
+
 ## Pattern: published or unpublished
 
 Decide this **before** building, because it is asymmetric: content that imports
