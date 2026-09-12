@@ -12,6 +12,7 @@ course_content.py, this is only assembly. Keep that split in your own build.
 """
 import os
 import pathlib
+import shutil
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -27,6 +28,14 @@ OUT = os.environ.get("OUT", "/tmp/%s.imscc" % C.COURSE_CODE)
 
 
 def main():
+    # Wipe first. add_page_resource() renames rather than overwrites, so a
+    # second run into the same directory leaves course-schedule-2.html beside
+    # course-schedule.html; the manifest points only at the new one and
+    # zip_package() rejects the leftovers. Running an example twice should not
+    # be an error, so every build script wants this line.
+    if os.path.isdir(BUILD_DIR):
+        shutil.rmtree(BUILD_DIR)
+
     b = ImsccBuilder(
         course_title=C.COURSE_TITLE,
         build_dir=BUILD_DIR,

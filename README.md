@@ -1,8 +1,27 @@
-# Canvas Course Kit
+<p align="center">
+  <img src="assets/banner.svg" alt="Canvas Course Kit: build a real Canvas course without API access" width="900">
+</p>
 
-Build a Canvas course — modules, pages, files, real gradebook-integrated
-assignments, rubrics, due dates — **without API access**, by hand-building the
-same `.imscc` export package Canvas itself produces, and importing it.
+<p align="center">
+  <a href="https://github.com/canvas-course-kit/canvas-course-kit/archive/refs/heads/main.zip"><img src="https://img.shields.io/badge/Download%20the%20kit-.zip-2EA043?style=for-the-badge&logo=github&logoColor=white" alt="Download the kit as a zip"></a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/python-3.8%2B-3776AB?logo=python&logoColor=white" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/dependencies-none-success" alt="No dependencies">
+  <a href="#quick-start"><img src="https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2" alt="Claude Code plugin"></a>
+</p>
+
+**Build a Canvas course without API access.** Modules, pages, files, real
+gradebook-integrated assignments, rubrics and due dates, hand-built as the same
+`.imscc` export package Canvas itself produces, then imported by you through
+the ordinary Import Course Content screen. No admin involved.
+
+> **Never used GitHub?** Click the green **Download the kit** button above, unzip
+> it, put the folder next to your course materials, and point an AI coding
+> assistant at that folder. That is the whole setup. Anywhere below that says
+> "clone the repo" means exactly this.
 
 ## What it does
 
@@ -28,18 +47,10 @@ same `.imscc` export package Canvas itself produces, and importing it.
 Nothing here needs a Canvas API token, an admin, or a paid tool. Python 3.8+,
 no dependencies.
 
-### 📦 [Download the kit as a zip](https://github.com/canvas-course-kit/canvas-course-kit/archive/refs/heads/main.zip)
-
-**New to GitHub? Start here.** That link gives you the whole kit as an ordinary
-zip file — nothing to install, no account needed. Anywhere below that says
-"clone the repo" means exactly this, and the zip is the same files.
-
 ---
 
-Then let an AI agent do the work. The simplest version: put the unzipped folder
-next to your course materials, in one folder, and point an AI coding assistant
-at it. It will find the kit, read the skills in `skills/`, and take it from
-there.
+Then let an AI agent do the work. Pointed at the folder, it reads the skills in
+`skills/` and takes it from there.
 
 **If you use Claude Code**, install this as a plugin and you get a
 `/canvas-build` command that walks you through it:
@@ -80,12 +91,9 @@ do the rest.
 
 ## Quick start
 
-**Never used GitHub before?** You do not need to — take
-**[the zip](https://github.com/canvas-course-kit/canvas-course-kit/archive/refs/heads/main.zip)**
-from the top of this page and unzip it. That is all "clone the repo" means.
-
-Point an AI coding assistant at the unzipped folder, as above, and you do not
-have to run any of the commands below yourself.
+If you took the **Download the kit** button at the top and pointed an assistant
+at the folder, you are already done and none of the commands below are yours to
+run.
 
 If you would rather drive it yourself:
 

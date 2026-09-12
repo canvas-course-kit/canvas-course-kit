@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="200" viewBox="0 0 900 200" role="img"
+     aria-label="Canvas Course Kit — build a real Canvas course without API access">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#141A22"/>
+      <stop offset="1" stop-color="#1D2632"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8C15A"/>
+      <stop offset="1" stop-color="#C98A3E"/>
+    </linearGradient>
+    <style>
+      .t { font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="900" height="200" rx="14" fill="url(#ground)"/>
+  <rect x="0" y="0" width="6" height="200" rx="3" fill="url(#edge)"/>
+
+  <!-- A course as a stack of modules, compressed into one package. The bars are
+       the modules; the outlined box on the right is the .imscc they become. -->
+  <g transform="translate(56,52)">
+    <rect x="0"  y="0"  width="104" height="13" rx="3.5" fill="#E8C15A" opacity="0.95"/>
+    <rect x="0"  y="23" width="78"  height="13" rx="3.5" fill="#8FA6BF" opacity="0.75"/>
+    <rect x="0"  y="46" width="92"  height="13" rx="3.5" fill="#8FA6BF" opacity="0.55"/>
+    <rect x="0"  y="69" width="64"  height="13" rx="3.5" fill="#8FA6BF" opacity="0.38"/>
+    <path d="M120 42 L150 42 M140 33 L150 42 L140 51" fill="none" stroke="#6F8298"
+          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(166,10)">
+      <rect x="0" y="0" width="62" height="62" rx="7" fill="none" stroke="#E8C15A" stroke-width="2.5"/>
+      <path d="M0 18 H62" stroke="#E8C15A" stroke-width="2.5"/>
+      <rect x="26" y="0" width="10" height="18" fill="#E8C15A"/>
+      <text class="mono" x="31" y="46" text-anchor="middle" font-size="13" fill="#E8C15A">imscc</text>
+    </g>
+  </g>
+
+  <text class="t" x="440" y="86" font-size="40" font-weight="700" fill="#F4F6F8"
+        letter-spacing="-0.6">Canvas Course Kit</text>
+  <text class="t" x="441" y="118" font-size="17" fill="#A9B8C9">
+    Modules, pages, assignments, rubrics, due dates.
+  </text>
+  <text class="t" x="441" y="142" font-size="17" fill="#A9B8C9">
+    Built as a file you import yourself.
+  </text>
+  <text class="t" x="441" y="169" font-size="17" font-weight="600" fill="#E8C15A">
+    No API token. No admin.
+  </text>
+</svg>
