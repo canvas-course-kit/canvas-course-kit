@@ -866,6 +866,57 @@ def main():
     ok("an ungraded practice quiz needs no group",
        bool(qb2.add_quiz("Practice", [essay("<p>x</p>")], quiz_type="practice_quiz")))
 
+    print("\n16. The page-identity bug (issue #4)")
+
+    # Canvas binds a module item to a page through the identifier the PAGE
+    # declares, not through the manifest. A package can be entirely
+    # self-consistent at the manifest layer and still lose module items.
+    idb = ImsccBuilder("Identity", tmp / "identity")
+    im = idb.new_module("Unit")
+    pid = idb.add_page_resource("Week 1", "<p>body</p>")
+    idb.add_item(im, "WikiPage", "Week 1", resource_id=pid)
+    idb.write_manifest_and_settings()
+    good, _ = idb.zip_package(tmp / "identity.imscc")
+    ok("a kit-built package has matching identifiers", check(good)[0] == [],
+       str(check(good)[0]))
+
+    with _zf.ZipFile(good) as z:
+        page_name = [n for n in z.namelist() if n.startswith("wiki_content/")][0]
+
+    def rebuild(mutate, out):
+        with _zf.ZipFile(good) as zin, _zf.ZipFile(out, "w") as zout:
+            for it in zin.infolist():
+                data = zin.read(it.filename)
+                if it.filename == page_name:
+                    data = mutate(data.decode()).encode()
+                zout.writestr(it, data)
+        return out
+
+    # 1. The head identifier disagrees with the manifest resource id.
+    import re as _re
+    mism = rebuild(lambda t: _re.sub(r'<meta name="identifier" content="[^"]*"',
+                                     '<meta name="identifier" content="g%s"' % ("0" * 32),
+                                     t),
+                   tmp / "identity-mismatch.imscc")
+    probs = check(mism)[0]
+    ok("a mismatched page identifier is caught",
+       any("binds module items through the PAGE" in x for x in probs), str(probs))
+
+    # 2. The meta is missing entirely.
+    gone = rebuild(lambda t: _re.sub(r'<meta name="identifier" content="[^"]*"/>', "", t),
+                   tmp / "identity-missing.imscc")
+    probs = check(gone)[0]
+    ok("a missing page identifier is caught",
+       any("declares no <meta" in x for x in probs), str(probs))
+
+    # And the reason this check has to exist: nothing else notices. The manifest
+    # is untouched and still perfectly self-consistent in both broken packages.
+    for label, pkg in (("mismatch", mism), ("missing", gone)):
+        others = [x for x in check(pkg)[0]
+                  if "identifier" not in x or "meta" not in x and "PAGE" not in x]
+        ok("the %s package is otherwise structurally clean" % label,
+           others == [], str(others))
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

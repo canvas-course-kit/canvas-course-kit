@@ -449,6 +449,42 @@ def emptied_dirs(names, moved, dropped):
 # ---------------------------------------------------------------------------
 # Streaming the rewrite
 # ---------------------------------------------------------------------------
+PAGE_IDENT_RE = re.compile(r'(<meta\s+name="identifier"\s+content=")([^"]*)(")')
+
+
+def page_identifier(page_html):
+    """The identifier a wiki page declares about ITSELF, or None.
+
+    This is the value Canvas binds module items through, and it is not the same
+    thing as the manifest resource identifier even though the two must agree.
+    See replace_page_body() for why that matters."""
+    m = PAGE_IDENT_RE.search(page_html)
+    return m.group(2) if m else None
+
+
+def replace_page_body(page_html, new_body_html):
+    """Swap a page's <body> contents, keeping its entire <head> intact.
+
+    Use this rather than generating a replacement page from scratch. A page
+    carries <meta name="identifier"> in its head, and Canvas binds module items
+    to a page through THAT value, not through the manifest. Mint a fresh one on
+    a replacement page and the page still imports perfectly, the manifest stays
+    self-consistent, the cartridge viewer still renders the module correctly,
+    and the module item is dropped silently. That is canvas-course-kit#4, which
+    cost a real course half a module before anyone noticed.
+
+    Raises if the page declares no identifier, because a replacement built from
+    such a page would inherit the same defect."""
+    if page_identifier(page_html) is None:
+        raise ValueError(
+            "page declares no <meta name=\"identifier\">, so replacing its body "
+            "would produce a page Canvas cannot bind a module item to")
+    m = re.search(r"(<body[^>]*>)(.*)(</body>)", page_html, re.S)
+    if not m:
+        raise ValueError("page has no <body> element")
+    return page_html[:m.start(2)] + new_body_html + page_html[m.end(2):]
+
+
 def stream_rewrite(src, out, *, drop=(), replace=None, add=None,
                    rename=None, transform=None):
     """Copy src.imscc to out.imscc, changing only what you name.

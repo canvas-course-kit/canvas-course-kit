@@ -558,6 +558,43 @@ def check(path, personal_names=(), a11y=True):
         if pub_bits:
             notes.append("published state: " + ", ".join(pub_bits))
 
+        # 8c-2. A page's own <meta name="identifier"> must equal the identifier
+        #       of the <resource> that declares it.
+        #
+        #       Canvas binds a module item to a wiki page through the value the
+        #       PAGE declares about itself, not through the manifest. If the two
+        #       disagree, the page still imports fine with its body intact, the
+        #       manifest can be perfectly self-consistent, the identifierref can
+        #       resolve to a real declared resource whose href is a real zip
+        #       entry -- and the module item is dropped with no error. The
+        #       cartridge viewer reads the manifest too, so it renders the module
+        #       correctly; the disagreement lives one layer below where either of
+        #       them looks.
+        #
+        #       Reported as canvas-course-kit#4 against a real course, where a
+        #       nine-item module arrived with four. Every structural check passed
+        #       because every structural check was reading the manifest.
+        for rid, href in re.findall(
+                r'<resource identifier="([^"]+)"[^>]*href="(wiki_content/[^"]+)"', man):
+            name = unescape_href(href)
+            if name not in names:
+                continue                      # check 3 already reports this
+            head = z.read(name).decode("utf8", "replace")[:4000]
+            m = re.search(r'<meta\s+name="identifier"\s+content="([^"]*)"', head)
+            title = re.search(r"<title>([^<]*)</title>", head)
+            title = title.group(1) if title else name
+            if not m:
+                problems.append(
+                    "page %r declares no <meta name=\"identifier\"> in its head, "
+                    "so Canvas cannot bind a module item to it and any module "
+                    "item pointing at it is dropped without an error" % title)
+            elif m.group(1) != rid:
+                problems.append(
+                    "page %r says its identifier is %s but the manifest resource "
+                    "declaring it is %s. Canvas binds module items through the "
+                    "PAGE, so the item is dropped silently while the page itself "
+                    "imports fine" % (title, m.group(1), rid))
+
         # 8d. Quizzes. A Canvas export writes each quiz twice: an empty CC
         #     shell at <rid>/assessment_qti.xml and the real questions at
         #     non_cc_assessments/<rid>.xml.qti. Ship only the shell and Canvas

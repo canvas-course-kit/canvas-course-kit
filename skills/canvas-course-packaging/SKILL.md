@@ -275,6 +275,7 @@ wrong on every day before that class happens.
 | Weighted groups import, and the gradebook still totals points | `course_settings.xml` is missing `<group_weighting_scheme>percent</group_weighting_scheme>`. Different failure from rule 2: the groups *do* arrive, they are just never applied, and every grade is quietly wrong |
 | Extra copies of pages appear in Files after import | Stale files in the build directory. `add_page_resource()` renames rather than overwrites, and whole folders are zipped. `rmtree` the build dir first |
 | The Syllabus page looks missing in the cartridge viewer | The viewer does not render it. Import and look in Canvas before hunting for a bug |
+| A module item is missing though its page imported fine | The page's own `<meta name="identifier">` does not match its manifest resource id. Canvas binds module items through the PAGE, not the manifest, and drops the item silently. `validate_package` checks this |
 | A quiz imports with no questions in it | The questions went into `<id>/assessment_qti.xml`. Canvas leaves that file empty and reads `non_cc_assessments/<id>.xml.qti` instead |
 | A QTI quiz export downloads with an empty `<resources>` element | Cause unknown. Use a full course export, or the New Quizzes Build menu's own Export, both of which have carried the same quiz complete |
 | A quiz imports but has no gradebook column | `quiz_type` is not `assignment`, or `assessment_meta.xml` has no nested `<assignment>` block |

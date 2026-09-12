@@ -308,6 +308,43 @@ Before hunting for a bug: **the Common Cartridge viewer does not render the
 Syllabus page**, so a correct package looks like it is missing one until you
 actually import it.
 
+## Pattern: a page's identifier is not the manifest's business
+
+**Canvas binds a module item to a wiki page through the identifier the PAGE
+declares about itself, not through the manifest.** Every page Canvas exports
+carries this in its own `<head>`:
+
+```html
+<meta name="identifier" content="gABC..."/>
+```
+
+and that value equals the `identifier` of the `<resource>` declaring it. If the
+two disagree:
+
+- the page imports fine, as a Page, with its body intact
+- `<organizations>` and `module_meta.xml` can both be well-formed and list the item
+- the `identifierref` can resolve to a real declared resource whose href is a real zip entry
+- and **the module item is dropped, with no error**
+
+The cartridge viewer reads the manifest too, so it renders the module correctly.
+The disagreement lives one layer below where either of them looks. Reported as
+canvas-course-kit#4 against a real course, where a nine-item module arrived with
+four and the rest were re-added by hand.
+
+`add_page_resource()` makes this impossible to get wrong: the same id goes into
+the head and the resource. The danger is in the mutation path, where a
+replacement page built from scratch inherits the old resource id but mints a
+fresh head identifier. Use the helper, which keeps the whole head:
+
+```python
+from canvas_imscc.rollforward import replace_page_body
+new_html = replace_page_body(old_page_html, "<p>this term's text</p>")
+```
+
+`validate_package` now checks every `wiki_content/*` resource against its page's
+declared identifier, and flags a missing meta too. It is cheap, needs nothing
+but the package, and catches the whole class.
+
 ## Pattern: quizzes
 
 A Canvas Classic Quiz is **four** pieces, and the shape is not what you would

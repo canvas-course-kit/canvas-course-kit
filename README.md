@@ -33,9 +33,11 @@ the ordinary Import Course Content screen. No admin involved.
   admin involved.
 - **Rolls a course forward** from last term's export, usually touching under 5%
   of the package and carrying everything else through untouched.
-- **Catches the import failures that are silent**, the ones where Canvas reports
-  success and quietly turns every assignment into a page with no gradebook
-  column. Each check exists because that mistake shipped at least once.
+- **Catches the import failures that are silent**: assignments quietly becoming
+  pages with no gradebook column, module items dropped because a page's own
+  identifier disagrees with the manifest, weighted gradebooks that import and
+  are then ignored. Each check exists because that mistake shipped at least
+  once.
 - **Audits accessibility before students see it**, rather than after Ally or
   UDOIT scores it: alt text, heading order, table headers, link text, contrast,
   and a read-only report on untagged PDFs.
