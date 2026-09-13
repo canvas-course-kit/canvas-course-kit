@@ -17,12 +17,11 @@
 **Build a Canvas course without API access.** Modules, pages, files, real
 gradebook-integrated assignments, rubrics and due dates, hand-built as the same
 `.imscc` export package Canvas itself produces, then imported by you through
-the ordinary Import Course Content screen. No admin involved.
+the ordinary Import Course Content screen. 
 
 > **Never used GitHub?** Click the green **Download the kit** button above, unzip
 > it, put the folder next to your course materials, and point an AI coding
-> assistant at that folder. That is the whole setup. Anywhere below that says
-> "clone the repo" means exactly this.
+> assistant at that folder. 
 
 ## What it does
 
@@ -74,7 +73,7 @@ your agent along with it. Same instructions, no plugin machinery.
 
 ## Who this is for
 
-Instructors whose institution has **disabled personal API access tokens**,
+Instructors who do not have **personal API access tokens**,
 which closes off the obvious route of scripting a course through Canvas's REST
 API. If you have API access, use the API — it is far simpler than any of this.
 
@@ -161,8 +160,6 @@ correctly in the viewer and then imported them into Canvas as Pages.
   question that actually matters, because Canvas is the thing doing the import.
   Use it to check that Assignments are Assignments.
 
-Neither one is optional, and neither one substitutes for the round-trip in
-point 3 of "The three things most likely to bite you" below.
 
 ## What's here
 
@@ -548,9 +545,9 @@ valuable, because a validator that passes while the package is broken is a worse
 problem than the original bug.
 
 **Do not attach your `.imscc`, a chat transcript, or screenshots of a live
-course.** A Canvas export contains student names in page bodies, in filenames,
-and inside `<img alt>` attributes, because Canvas copies the original filename
-into the alt text, so renaming the file does not remove the name. Three
+course.** A Canvas export *may* contain student names in page bodies, filenames,
+or `<img alt>` attributes — the filename-to-alt-text copy means a renamed file
+keeps the name — but this is relatively uncommon. Three
 sentences of symptom plus the fix is more useful than a long log anyway.
 
 A pull request adding a row to the gotchas table (symptom, cause, fix) is the
