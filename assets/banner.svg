@@ -1,49 +1,130 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="200" viewBox="0 0 900 200" role="img"
-     aria-label="Canvas Course Kit — build a real Canvas course without API access">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 900 200">
+  <!-- Generator: Adobe Illustrator 30.7.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 114)  -->
   <defs>
-    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#141A22"/>
-      <stop offset="1" stop-color="#1D2632"/>
-    </linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E8C15A"/>
-      <stop offset="1" stop-color="#C98A3E"/>
-    </linearGradient>
     <style>
-      .t { font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-      .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+      .st0, .st1, .st2 {
+        stroke-width: 2.5px;
+      }
+
+      .st0, .st2 {
+        stroke: #e8c15a;
+      }
+
+      .st3 {
+        fill: url(#linear-gradient1);
+      }
+
+      .st4 {
+        letter-spacing: 0em;
+      }
+
+      .st4, .st5, .st6 {
+        font-family: MyriadPro-Regular, 'Myriad Pro';
+      }
+
+      .st1 {
+        stroke: #6f8298;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .st1, .st2 {
+        fill: none;
+      }
+
+      .st7 {
+        font-family: AppleBraille-Outline6Dot, 'Apple Braille';
+      }
+
+      .st8 {
+        fill: #a9b8c9;
+      }
+
+      .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15 {
+        isolation: isolate;
+      }
+
+      .st8, .st14 {
+        font-size: 17px;
+      }
+
+      .st5 {
+        letter-spacing: 0em;
+      }
+
+      .st16 {
+        fill: url(#linear-gradient);
+      }
+
+      .st9 {
+        opacity: .75;
+      }
+
+      .st9, .st10, .st11 {
+        fill: #8fa6bf;
+      }
+
+      .st10 {
+        opacity: .55;
+      }
+
+      .st11 {
+        opacity: .38;
+      }
+
+      .st12 {
+        fill: #f4f6f8;
+        font-size: 40px;
+        letter-spacing: -.02em;
+      }
+
+      .st12, .st14 {
+        font-family: Helvetica-Bold, Helvetica;
+        font-weight: 700;
+      }
+
+      .st17, .st13, .st14, .st15 {
+        fill: #e8c15a;
+      }
+
+      .st13 {
+        opacity: .95;
+      }
+
+      .st15 {
+        font-family: Menlo-Regular, Menlo;
+        font-size: 18.64px;
+      }
     </style>
+    <linearGradient id="linear-gradient" x1="-508.43" y1="638.81" x2="-507.43" y2="637.81" gradientTransform="translate(457591 127761) scale(900 -200)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#141a22"/>
+      <stop offset="1" stop-color="#1d2632"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient1" x1="-423.67" y1="638.81" x2="-423.67" y2="637.81" gradientTransform="translate(2545 127761) scale(6 -200)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e8c15a"/>
+      <stop offset="1" stop-color="#c98a3e"/>
+    </linearGradient>
   </defs>
-
-  <rect width="900" height="200" rx="14" fill="url(#ground)"/>
-  <rect x="0" y="0" width="6" height="200" rx="3" fill="url(#edge)"/>
-
-  <!-- A course as a stack of modules, compressed into one package. The bars are
-       the modules; the outlined box on the right is the .imscc they become. -->
-  <g transform="translate(56,52)">
-    <rect x="0"  y="0"  width="104" height="13" rx="3.5" fill="#E8C15A" opacity="0.95"/>
-    <rect x="0"  y="23" width="78"  height="13" rx="3.5" fill="#8FA6BF" opacity="0.75"/>
-    <rect x="0"  y="46" width="92"  height="13" rx="3.5" fill="#8FA6BF" opacity="0.55"/>
-    <rect x="0"  y="69" width="64"  height="13" rx="3.5" fill="#8FA6BF" opacity="0.38"/>
-    <path d="M120 42 L150 42 M140 33 L150 42 L140 51" fill="none" stroke="#6F8298"
-          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <g transform="translate(166,10)">
-      <rect x="0" y="0" width="62" height="62" rx="7" fill="none" stroke="#E8C15A" stroke-width="2.5"/>
-      <path d="M0 18 H62" stroke="#E8C15A" stroke-width="2.5"/>
-      <rect x="26" y="0" width="10" height="18" fill="#E8C15A"/>
-      <text class="mono" x="31" y="46" text-anchor="middle" font-size="13" fill="#E8C15A">imscc</text>
+  <rect class="st16" width="900" height="200" rx="14" ry="14"/>
+  <path class="st3" d="M3,0h0c1.66,0,3,1.34,3,3v194c0,1.66-1.34,3-3,3h0c-1.66,0-3-1.34-3-3V3C0,1.34,1.34,0,3,0Z"/>
+  <g>
+    <rect class="st13" x="40" y="47.13" width="149.16" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st9" x="40" y="80.11" width="111.87" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st10" x="40" y="113.1" width="131.95" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st11" x="40" y="146.09" width="91.79" height="18.64" rx="3.5" ry="3.5"/>
+    <path class="st1" d="M203.21,113h43.03M231.89,100.09l14.34,12.91-14.34,12.91"/>
+    <g>
+      <rect class="st2" x="278.08" y="61.47" width="88.92" height="88.92" rx="7" ry="7"/>
+      <path class="st0" d="M278.08,87.28h88.92"/>
+      <rect class="st17" x="315.37" y="61.47" width="14.34" height="25.82"/>
+      <text class="st15" transform="translate(294.48 127.44)"><tspan x="0" y="0">imscc</tspan></text>
     </g>
   </g>
-
-  <text class="t" x="440" y="86" font-size="40" font-weight="700" fill="#F4F6F8"
-        letter-spacing="-0.6">Canvas Course Kit</text>
-  <text class="t" x="441" y="118" font-size="17" fill="#A9B8C9">
-    Modules, pages, assignments, rubrics, due dates.
-  </text>
-  <text class="t" x="441" y="142" font-size="17" fill="#A9B8C9">
-    Built as a file you import yourself.
-  </text>
-  <text class="t" x="441" y="169" font-size="17" font-weight="600" fill="#E8C15A">
-    No API token. No admin.
-  </text>
+  <g>
+    <text class="st12" transform="translate(449 81)"><tspan x="0" y="0">Canvas Course Kit</tspan></text>
+    <text class="st8" transform="translate(450 113)"><tspan class="st6" x="0" y="0">Modules,</tspan><tspan class="st7" x="64.73" y="0"> </tspan><tspan class="st6" x="70.55" y="0">pages,</tspan><tspan class="st7" x="116.68" y="0"> </tspan><tspan class="st6" x="122.49" y="0">assignments,</tspan><tspan class="st7" x="215.07" y="0"> </tspan><tspan class="st6" x="220.88" y="0">rubrics,</tspan><tspan class="st7" x="272.89" y="0"> </tspan><tspan class="st6" x="278.7" y="0">due</tspan><tspan class="st7" x="306.17" y="0"> </tspan><tspan class="st6" x="311.98" y="0">dates.</tspan></text>
+    <text class="st8" transform="translate(450 137)"><tspan class="st6" x="0" y="0">Built</tspan><tspan class="st7" x="32.2" y="0"> </tspan><tspan class="st6" x="38.01" y="0">as</tspan><tspan class="st7" x="52.93" y="0"> </tspan><tspan class="st4" x="58.74" y="0">a</tspan><tspan class="st7" x="66.94" y="0"> </tspan><tspan class="st5" x="72.75" y="0">file</tspan><tspan class="st7" x="94.17" y="0"> </tspan><tspan class="st6" x="99.98" y="0">you</tspan><tspan class="st7" x="126.69" y="0"> </tspan><tspan class="st6" x="132.5" y="0">import</tspan><tspan class="st7" x="180.84" y="0"> </tspan><tspan class="st6" x="186.65" y="0">yourself.</tspan></text>
+    <text class="st14" transform="translate(450 164)"><tspan x="0" y="0">No API token. </tspan></text>
+  </g>
 </svg>
