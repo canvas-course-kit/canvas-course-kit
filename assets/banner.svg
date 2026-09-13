@@ -15,14 +15,6 @@
         fill: url(#linear-gradient1);
       }
 
-      .st4 {
-        letter-spacing: 0em;
-      }
-
-      .st4, .st5, .st6 {
-        font-family: MyriadPro-Regular, 'Myriad Pro';
-      }
-
       .st1 {
         stroke: #6f8298;
         stroke-linecap: round;
@@ -33,66 +25,59 @@
         fill: none;
       }
 
-      .st7 {
-        font-family: AppleBraille-Outline6Dot, 'Apple Braille';
-      }
-
-      .st8 {
-        fill: #a9b8c9;
-      }
-
-      .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15 {
-        isolation: isolate;
-      }
-
-      .st8, .st14 {
-        font-size: 17px;
-      }
-
-      .st5 {
-        letter-spacing: 0em;
-      }
-
-      .st16 {
+      .st4 {
         fill: url(#linear-gradient);
       }
 
-      .st9 {
+      .st5 {
         opacity: .75;
       }
 
-      .st9, .st10, .st11 {
+      .st5, .st6, .st7 {
         fill: #8fa6bf;
       }
 
-      .st10 {
+      .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12 {
+        isolation: isolate;
+      }
+
+      .st6 {
         opacity: .55;
       }
 
-      .st11 {
+      .st7 {
         opacity: .38;
       }
 
-      .st12 {
+      .st8 {
         fill: #f4f6f8;
         font-size: 40px;
         letter-spacing: -.02em;
       }
 
-      .st12, .st14 {
+      .st8, .st11 {
         font-family: Helvetica-Bold, Helvetica;
         font-weight: 700;
       }
 
-      .st17, .st13, .st14, .st15 {
+      .st13, .st10, .st11, .st12 {
         fill: #e8c15a;
       }
 
-      .st13 {
+      .st9 {
+        fill: #a9b8c9;
+        font-family: Helvetica, Helvetica;
+      }
+
+      .st9, .st11 {
+        font-size: 17px;
+      }
+
+      .st10 {
         opacity: .95;
       }
 
-      .st15 {
+      .st12 {
         font-family: Menlo-Regular, Menlo;
         font-size: 18.64px;
       }
@@ -106,25 +91,25 @@
       <stop offset="1" stop-color="#c98a3e"/>
     </linearGradient>
   </defs>
-  <rect class="st16" width="900" height="200" rx="14" ry="14"/>
+  <rect class="st4" width="900" height="200" rx="14" ry="14"/>
   <path class="st3" d="M3,0h0c1.66,0,3,1.34,3,3v194c0,1.66-1.34,3-3,3h0c-1.66,0-3-1.34-3-3V3C0,1.34,1.34,0,3,0Z"/>
   <g>
-    <rect class="st13" x="40" y="47.13" width="149.16" height="18.64" rx="3.5" ry="3.5"/>
-    <rect class="st9" x="40" y="80.11" width="111.87" height="18.64" rx="3.5" ry="3.5"/>
-    <rect class="st10" x="40" y="113.1" width="131.95" height="18.64" rx="3.5" ry="3.5"/>
-    <rect class="st11" x="40" y="146.09" width="91.79" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st10" x="40" y="47.13" width="149.16" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st5" x="40" y="80.11" width="111.87" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st6" x="40" y="113.1" width="131.95" height="18.64" rx="3.5" ry="3.5"/>
+    <rect class="st7" x="40" y="146.09" width="91.79" height="18.64" rx="3.5" ry="3.5"/>
     <path class="st1" d="M203.21,113h43.03M231.89,100.09l14.34,12.91-14.34,12.91"/>
     <g>
       <rect class="st2" x="278.08" y="61.47" width="88.92" height="88.92" rx="7" ry="7"/>
       <path class="st0" d="M278.08,87.28h88.92"/>
-      <rect class="st17" x="315.37" y="61.47" width="14.34" height="25.82"/>
-      <text class="st15" transform="translate(294.48 127.44)"><tspan x="0" y="0">imscc</tspan></text>
+      <rect class="st13" x="315.37" y="61.47" width="14.34" height="25.82"/>
+      <text class="st12" transform="translate(294.48 127.44)"><tspan x="0" y="0">imscc</tspan></text>
     </g>
   </g>
   <g>
-    <text class="st12" transform="translate(449 81)"><tspan x="0" y="0">Canvas Course Kit</tspan></text>
-    <text class="st8" transform="translate(450 113)"><tspan class="st6" x="0" y="0">Modules,</tspan><tspan class="st7" x="64.73" y="0"> </tspan><tspan class="st6" x="70.55" y="0">pages,</tspan><tspan class="st7" x="116.68" y="0"> </tspan><tspan class="st6" x="122.49" y="0">assignments,</tspan><tspan class="st7" x="215.07" y="0"> </tspan><tspan class="st6" x="220.88" y="0">rubrics,</tspan><tspan class="st7" x="272.89" y="0"> </tspan><tspan class="st6" x="278.7" y="0">due</tspan><tspan class="st7" x="306.17" y="0"> </tspan><tspan class="st6" x="311.98" y="0">dates.</tspan></text>
-    <text class="st8" transform="translate(450 137)"><tspan class="st6" x="0" y="0">Built</tspan><tspan class="st7" x="32.2" y="0"> </tspan><tspan class="st6" x="38.01" y="0">as</tspan><tspan class="st7" x="52.93" y="0"> </tspan><tspan class="st4" x="58.74" y="0">a</tspan><tspan class="st7" x="66.94" y="0"> </tspan><tspan class="st5" x="72.75" y="0">file</tspan><tspan class="st7" x="94.17" y="0"> </tspan><tspan class="st6" x="99.98" y="0">you</tspan><tspan class="st7" x="126.69" y="0"> </tspan><tspan class="st6" x="132.5" y="0">import</tspan><tspan class="st7" x="180.84" y="0"> </tspan><tspan class="st6" x="186.65" y="0">yourself.</tspan></text>
-    <text class="st14" transform="translate(450 164)"><tspan x="0" y="0">No API token. </tspan></text>
+    <text class="st8" transform="translate(449 81)"><tspan x="0" y="0">Canvas Course Kit</tspan></text>
+    <text class="st9" transform="translate(450 113)"><tspan x="0" y="0">Modules, pages, assignments, rubrics, due dates.</tspan></text>
+    <text class="st9" transform="translate(450 137)"><tspan x="0" y="0">Built as a file you import yourself.</tspan></text>
+    <text class="st11" transform="translate(450 164)"><tspan x="0" y="0">No API token. </tspan></text>
   </g>
 </svg>
