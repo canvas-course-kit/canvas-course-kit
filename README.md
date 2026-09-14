@@ -65,6 +65,11 @@ Then let an AI agent do the work. Pointed at the folder, it reads the skills in
 Then type `/canvas-build`. The plugin also loads a background skill, so
 just saying "help me get my syllabus into Canvas" is enough to trigger it.
 
+**If you use Hermes Agent**, the skill is already in `skills/` —
+point Hermes at the repo and it loads automatically. You can also install
+it from the Skills Hub with `hermes skills install canvas-course-kit`
+or drop the file into `~/.hermes/skills/education/` manually.
+
 **If you use anything else** — ChatGPT, Cursor, Copilot, the Claude web app —
 [download the zip](https://github.com/canvas-course-kit/canvas-course-kit/archive/refs/heads/main.zip) (or clone the repo) and hand [`AGENT.md`](AGENT.md) to
 your agent along with it. Same instructions, no plugin machinery.
