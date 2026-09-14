@@ -171,7 +171,7 @@ correctly in the viewer and then imported them into Canvas as Pages.
 | Path | What it is |
 |---|---|
 | [`AGENT.md`](AGENT.md) | **Hand this to your AI agent.** Instructions, rules, and the questions it should ask you first. |
-| `skills/` | The same instructions packaged as a Claude Code plugin: `/canvas-build` plus an auto-triggering background skill. |
+| `skills/` | A Hermes Agent skill — standalone `.skill.md` file that loads on-demand when Hermes needs it. |
 | [`docs/playbook.md`](docs/playbook.md) | The format, the workflow, and every gotcha, with the reasoning. Read this if you are doing it yourself. |
 | [`docs/mutating-an-export.md`](docs/mutating-an-export.md) | Rolling a course forward from last term's export. Usually the right approach, and not the obvious one. |
 | `canvas_imscc/builder.py` | The engine. Modules, pages, files, assignments, groups, rubrics, manifest writing, validation, zipping. |
