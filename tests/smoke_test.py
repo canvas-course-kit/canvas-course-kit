@@ -917,6 +917,55 @@ def main():
         ok("the %s package is otherwise structurally clean" % label,
            others == [], str(others))
 
+    # ------------------------------------------------------------------
+    print()
+    print("17. The course card image")
+    # Not part of Common Cartridge. A real Canvas export ships the file under
+    # web_resources/course_image/ AND names its resource identifier in
+    # <image_identifier_ref>. Ship only the file and the import succeeds with a
+    # blank course tile, which is the failure mode worth a test.
+    ci_dir = tmp / "course-image-build"
+    img = tmp / "tile.jpg"
+    img.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 64)   # enough to be a file
+    bi = ImsccBuilder("Image Course", ci_dir)
+    ref = bi.set_course_image(img)
+    mi = bi.new_module("Week 1")
+    bi.add_item(mi, "WikiPage", "Hello",
+                resource_id=bi.add_page_resource("Hello", "<p>hi</p>"))
+    bi.write_manifest_and_settings()
+    got_ok, rep = bi.validate()
+    ok("a package with a course image validates", got_ok, rep.splitlines()[-1])
+    ci_pkg, _ = bi.zip_package(tmp / "course-image.imscc")
+
+    CV = "{http://canvas.instructure.com/xsd/cccv1p0}"
+    CC = "{http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1}"
+    settings = _ET.fromstring(z_read(ci_pkg, "course_settings/course_settings.xml"))
+    got = settings.findtext(CV + "image_identifier_ref")
+    ok("course_settings.xml carries <image_identifier_ref>", got == ref,
+       "got %r, set_course_image returned %r" % (got, ref))
+
+    mani = _ET.fromstring(z_read(ci_pkg, "imsmanifest.xml"))
+    hrefs = {r.get("identifier"): r.get("href") for r in mani.iter(CC + "resource")}
+    ok("the ref resolves to a declared resource", got in hrefs,
+       "%d resource identifiers declared" % len(hrefs))
+    ok("that resource is the course image file",
+       hrefs.get(got) == "web_resources/course_image/tile.jpg", str(hrefs.get(got)))
+    with _zf.ZipFile(ci_pkg) as z:
+        ok("and the file is actually in the zip",
+           "web_resources/course_image/tile.jpg" in z.namelist())
+
+    # A package that never sets one must not emit an empty or dangling ref.
+    no_dir = tmp / "no-image-build"
+    bn = ImsccBuilder("No Image Course", no_dir)
+    mn = bn.new_module("Week 1")
+    bn.add_item(mn, "WikiPage", "Hello",
+                resource_id=bn.add_page_resource("Hello", "<p>hi</p>"))
+    bn.write_manifest_and_settings()
+    no_pkg, _ = bn.zip_package(tmp / "no-image.imscc")
+    s2 = _ET.fromstring(z_read(no_pkg, "course_settings/course_settings.xml"))
+    ok("no image set means no <image_identifier_ref> at all",
+       s2.find(CV + "image_identifier_ref") is None)
+
     print()
     if FAILURES:
         print("FAILED: %d check(s): %s" % (len(FAILURES), ", ".join(FAILURES)))

@@ -117,6 +117,10 @@ class ImsccBuilder:
         for d in (self.wiki, self.web, self.cs):
             d.mkdir(parents=True, exist_ok=True)
 
+        # Resource id of the course card image, if set_course_image() was
+        # called. Canvas exports carry this as <image_identifier_ref>.
+        self.course_image_ref = None
+
         self.resources = []  # [{id, type:'page'|'file', href, title, published}]
         # resource id -> published, so a module item can default to the state of
         # the thing it points at rather than to the course default.
@@ -195,6 +199,36 @@ class ImsccBuilder:
         self.resources.append({"id": rid, "type": "file", "href": href,
                                "title": pathlib.Path(rel_path).name})
         return rid
+
+    def set_course_image(self, src_path, filename=None):
+        """Set the course card image, the picture on the course tile in the
+        Canvas dashboard. It is NOT part of Common Cartridge; it is a Canvas
+        extension, and a real Canvas export encodes it in two halves that must
+        agree:
+
+          web_resources/course_image/<name>   declared as an ordinary
+                                              webcontent resource, and
+          <image_identifier_ref>              in course_settings.xml, naming
+                                              that resource's identifier.
+
+        Verified against a live Canvas course export (2026-09-30). A package
+        that ships the file but omits the ref imports the image into Files and
+        leaves the course tile blank, which is what it looks like when you
+        forget this: the import succeeds and nothing is obviously wrong.
+
+        filename defaults to the source file's own name. Canvas serves it out
+        of a course_image/ subdirectory, so it will not collide with an image
+        of the same name used inside a page."""
+        src = pathlib.Path(src_path)
+        name = filename or src.name
+        self.course_image_ref = self.add_file_resource(
+            f"course_image/{name}", src_path=src)
+        return self.course_image_ref
+
+    def _course_image_xml(self):
+        if not self.course_image_ref:
+            return ""
+        return f"  <image_identifier_ref>{self.course_image_ref}</image_identifier_ref>\n"
 
     @staticmethod
     def extract_body(html_path):
@@ -904,7 +938,7 @@ class ImsccBuilder:
   <default_wiki_editing_roles>teachers</default_wiki_editing_roles>
   <allow_student_organized_groups>false</allow_student_organized_groups>
   <default_view>modules</default_view>
-{self._weighting_scheme_xml()}  <license>private</license>
+{self._course_image_xml()}{self._weighting_scheme_xml()}  <license>private</license>
   <indexed>false</indexed>
   <hide_final_grade>false</hide_final_grade>
 </course>

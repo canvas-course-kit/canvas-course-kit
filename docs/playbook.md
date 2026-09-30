@@ -624,6 +624,38 @@ now the pattern twice over.
 
 ---
 
+## Pattern: the course card image
+
+The picture on the course tile in the Canvas dashboard is **not part of Common
+Cartridge**. It is a Canvas extension, and it is easy to miss because a package
+without one imports perfectly and simply comes up with a blank tile.
+
+A real Canvas export encodes it in two halves that have to agree:
+
+```
+web_resources/course_image/<name>.jpeg     declared in imsmanifest.xml as an
+                                           ordinary webcontent resource
+
+<image_identifier_ref>gNNNN…</image_identifier_ref>
+                                           in course_settings.xml, naming that
+                                           resource's identifier
+```
+
+Ship only the file and Canvas imports it into Files like any other attachment,
+leaving the tile empty. Ship only the ref and it points at nothing.
+
+```python
+b.set_course_image("course-image/Intaglio.001.jpeg")
+```
+
+That registers the file under `web_resources/course_image/` and emits the ref.
+Verified against a live Canvas export, 2026-09-30. The `course_image/`
+subdirectory is what Canvas itself uses, and it keeps the tile from colliding
+with an image of the same name used inside a page.
+
+If you are mutating a previous term's export rather than building, the image is
+already correct in it. Leave both halves alone.
+
 ## Gotchas
 
 Every one of these is a real bug that shipped, not a hypothetical.
